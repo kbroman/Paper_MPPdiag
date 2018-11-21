@@ -1,0 +1,991 @@
+\documentclass[12pt,letterpaper]{article}
+
+%%%%% packages
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+\usepackage{lscape,pdflscape}
+\usepackage{alltt,amsmath,caption,epsfig,enumerate,enumitem,float,
+  hyperref,indentfirst,pdfpages,relsize,sectsty,setspace,subcaption,times}
+\hypersetup{colorlinks, allcolors={black}}  % default link color
+\hypersetup{pdfpagemode=UseNone} % don't show bookmarks on initial view
+\setlength{\rightskip}{0pt plus 1fil} % makes ragged right
+\usepackage[authoryear]{natbib}
+\bibpunct{(}{)}{;}{a}{}{,}
+\usepackage[labelsep=space]{caption}
+%%%%%%%%%%%%%%
+
+\sectionfont{\normalfont\sffamily\bfseries}
+\subsectionfont{\normalfont\fontsize{12}{15}\sffamily\bfseries}
+
+\newcommand{\LOD}{\text{LOD}}
+\renewcommand{\figurename}{\textbf{Figure}}
+\renewcommand{\thefigure}{\textbf{\arabic{figure}}}
+
+<<setup, include=FALSE>>=
+knitr::opts_chunk$set(echo=FALSE, results="hide",
+                      warning=FALSE, message=FALSE)
+library(qtl2)
+library(broman)
+library(fst)
+@
+
+
+\begin{document}
+
+\setstretch{2.0}
+
+\vspace*{8mm}
+\begin{center}
+
+\textbf{\Large Cleaning genotype data from Diversity Outbred mice}
+
+\bigskip \bigskip \bigskip \bigskip
+
+{\large Karl W. Broman$^{*,1}$, Daniel M. Gatti$^{\dagger}$,
+Karen L. Svenson$^{\dagger}$, \\
+\'Saunak Sen$^{\ddagger}$, Gary A. Churchill$^{\dagger}$}
+
+\bigskip \bigskip
+
+$^{*}$Department of Biostatistics and Medical Informatics,
+University of
+Wisconsin--Madison, Madison, Wisconsin 53706;
+$^{\dagger}$The Jackson Laboratory, Bar Harbor, Maine 04609;
+$^{\ddagger}$Department of Preventive Medicine, University of
+Tennessee Health Sciences Center, Memphis, Tennessee 38163
+
+\end{center}
+
+%%% Add today's date
+\def\todayISO{\leavevmode\hbox{\the\year-\twodigits\month-\twodigits\day}}
+\def\twodigits#1{\ifnum#1<10 0\fi\the#1}
+
+\vspace{3in} \hfill {\footnotesize \todayISO}
+%%%%%%%%%%%%%%%%%
+
+\newpage
+
+\noindent \textbf{Running head:} Cleaning DO genotypes
+
+
+\bigskip \bigskip \bigskip
+
+\noindent \textbf{Key words:} data cleaning, QTL, quantitative trait loci,
+multi-parent populations, data diagnostics
+
+
+
+\bigskip \bigskip \bigskip
+
+\noindent \textbf{$^1$Corresponding author:}
+
+\begin{tabular}{lll}
+ \\
+ \hspace{1cm} & \multicolumn{2}{l}{Karl W Broman} \\
+ & \multicolumn{2}{l}{Department of Biostatistics and Medical Informatics} \\
+ & \multicolumn{2}{l}{University of Wisconsin--Madison} \\
+ & \multicolumn{2}{l}{2126 Genetics-Biotechnology Center} \\
+ & \multicolumn{2}{l}{425 Henry Mall} \\
+ & \multicolumn{2}{l}{Madison, WI 53706} \\
+ \\
+ & Phone: & 608--262--4633 \\
+ & Email: & \verb|broman@wisc.edu|
+\end{tabular}
+
+
+\newpage
+
+\section*{Abstract}
+
+Data cleaning is an important first step in most statistical analyses,
+including efforts to map the genetic loci that contribute to variation
+in complex quantitative traits. Data cleaning is more difficult in
+multiparent populations (experimental crosses derived from more than
+two founder strains), as individual SNP markers have incomplete
+information. We describe our process for cleaning SNP microarray
+genotype data from Diversity Outbred (DO) mice. We first consider the
+proportion of missing genotypes in each mouse, as an indicator of
+sample quality. We use microarray probe intensities for SNPs
+on the X and Y chromosomes to check mouse sex. We use the proportion
+of matching SNP genotypes in pairs of mice to detect sample
+duplicates. We use a hidden Markov model to calculate genotype
+probabilities across the genome for each mouse, which we use to
+estimate the number of crossovers in each mouse, and to identify
+potential genotyping errors. The estimated genotyping error rate, by
+mouse sample and by SNP marker, is a useful diagnostic. We also
+consider the SNP genotype frequencies by mouse and by marker, with
+markers grouped according to the minor allele frequency in the founder
+strains. For markers with high apparent error rates, a scatterplot of
+the allele intensities from the microarray, colored by both observed
+and predicted genotypes, can be revealing about the underlying cause.
+But the detection of low-quality samples is more important than the
+detection of low-quality markers.
+
+
+
+
+
+
+\newpage
+
+\section*{Introduction}
+
+Data cleaning is a critical first step in analyses to identify the
+quantitative trait loci (QTL) that contribute to a complex
+quantitative trait. Despite its importance, little has been written
+about this part of the process. \citet{lincoln1992} discussed the
+detection of genotyping errors in genetic map construction.
+\citet[Ch. 3]{broman_sen} discussed data cleaning more broadly, in
+biparental crosses. \citet{argyle}, in presenting the R package
+argyle for quality control for SNP genotyping arrays, emphasized
+consideration of the amount of missing genotypes, frequency of
+heterozygotes, and the distribution of array intensities.
+
+Multiparent populations (experimental crosses derived from more than
+two founder strains) have become a popular design for complex trait
+genetics in experimental organisms. Examples include heterogeneous
+stock \citep{mott2000,mott2002}, MAGIC lines \citep{cavanagh2008,
+kover2009}, the Collaborative Cross \citep{churchill2004}, and
+Diversity Outbred mice \citep{churchill2012, svenson2012}. Data
+cleaning is more difficult in multiparent populations, as individual
+SNP markers have incomplete information.
+
+<<load_raw_data>>=
+svenson <- readRDS("Data/svenson_v1.rds")
+markers <- unique(read_fst("RawData/intensities.fst", columns="snp")[,1])
+@
+
+A key principle in data cleaning is to think about what might have
+gone wrong, and how it might be revealed in the data. Visualize the
+data in many ways, and if you see something weird, try to figure out
+what is going on.
+
+We illustrate our process for cleaning genotype data using
+MegaMUGA SNP array data \citep{gigamuga}
+on \Sexpr{n_ind(svenson)} Diversity Outbred (DO) mice.
+
+
+\clearpage
+\section*{Material and Methods}
+
+\subsection*{Mice and genotypes}
+
+We consider genotype data for \Sexpr{n_ind(svenson)} Diversity Outbred
+(DO) mice, including
+\Sexpr{sum(svenson$cross_info==8)} mice from generation 8 and
+\Sexpr{sum(svenson$cross_info==11)} mice from generation 11. These are
+a subset of the mice considered in \citet{gatti2014}.
+
+The mice were genotyped using the MegaMUGA SNP array \citep{gigamuga},
+which includes 77,808 markers. The genotyping was performed at Neogen
+(Lincoln, NE). Genotype calls using pairs of nucleotides A, C, G, and T were
+converted to genotypes AA, AB, BB, with A denoting the allele that was
+most frequenct among the eight founder strains (assigned arbitrarily
+when the two alleles were equally frequent).
+
+
+\subsection*{Statistical methods}
+
+Analyses were conducted in R \citep{RCore} and with R/qtl2 (\url{https://kbroman.org/qtl2}).
+Most of the statistical analyses involves visualization of summary statistics.
+
+To reconstruct the genomes of the DO mice, we use a hidden Markov
+model \citep[see][App. D]{broman_sen}. The transition probabilities
+for DO mice were taken from \citet{broman2012b}, which
+uses the results of \citet{broman2012a}. We used the genetic map from
+\citet{cox2009}, assumed a genotyping error
+rate of 0.2\%, and used the Carter-Falconer map function \citep{carter1951}.
+The HMM provides a probability for each possible 36-state diplotype at
+each marker for each mouse. (We use the term diplotype to refer to a
+pair of founder haplotypes.)
+
+To estimate the number of crossovers in each individual, we inferred
+the 36-state diplotype at each locus as the state with maximum
+marginal probability, provided that it was $>$ 0.5. (In cases where
+all diplotypes had probability $<$ 0.5, the diplotype state was
+treated as missing.) We then calculated
+the minimum number of crossovers consistent with these inferred
+diplotypes.
+
+To identify potential genotyping errors, we calculated the genotyping
+error LOD scores of \citet{lincoln1992}, by first converting the 36-state
+diplotype probabilities to 3-state SNP genotype probabilities, using
+the SNP genotypes in the eight founder strains. We then used the observed SNP genotype to
+calculate the error LOD score as in equation 1b of \citet{lincoln1992}.
+
+To obtain predicted SNP genotypes for each DO mouse, we collapsed the
+predicted 36-state diplotypes to 3-state SNP genotypes using the
+SNP genotypes in the founders.
+
+
+\subsection*{Data and software availability}
+
+The raw genotype data are available at FigShare
+(\url{https://doi.org/10.6084/m9.figshare.7359542.v1}).
+They are also available in the R/qtl2
+input format at \url{https://github.com/rqtl/qtl2data}.
+
+The SNP genotypes for the founder strains are at FigShare,
+\url{https://doi.org/10.6084/m9.figshare.5404750.v2}.
+We used annotations for the MegaMUGA genotyping array
+from \url{https://github.com/kbroman/MUGAarrays}.
+
+R/qtl2 is available at \url{https://kbroman.org/qtl2} and at GitHub,
+\url{https://github.com/rqtl/qtl2}. The custom R scripts used for our
+analyses and to create the figures are at GitHub
+(\url{https://github.com/kbroman/Paper_MPPdiag}).
+
+
+
+
+
+
+\clearpage
+\section*{Results}
+
+We consider data from a population of \Sexpr{n_ind(svenson)} Diversity
+Outbred (DO) mice \citep{gatti2017},
+including \Sexpr{sum(svenson$cross_info==8)} mice from generation 8
+and \Sexpr{sum(svenson$cross_info==11)} mice from generation 11.
+There are \Sexpr{sum(svenson$is_female)} females and
+\Sexpr{sum(!svenson$is_female)} males. The mice were genotyped with
+the MegaMUGA array, which includes \Sexpr{add_commas(length(markers))}
+markers, but we focus on the \Sexpr{add_commas(tot_mar(svenson))}
+markers that are polymorphic among the eight founder strains.
+
+\subsection*{Sample diagnostics}
+
+<<calc_prop_missing>>=
+pmis <- n_missing(svenson, "ind", "prop")*100
+n_pmis_gt_20 <- sum(pmis >= 19.97)
+@
+
+\noindent \textbf{Missing data}:
+Our first step in genotype data diagnostics is to look at
+the proportion of missing genotypes in each mouse, as this is a key
+indicator of sample quality. Samples with a high proportion
+of missing genotypes are likely low quality.
+
+The percent
+missing genotypes by mouse are displayed in Figure~1. The bulk of mice
+are missing very little data, but there are
+\Sexpr{sum(pmis > 2)} mice with $>$2\% missing genotypes,
+including \Sexpr{numbers[n_pmis_gt_20]} mice with $\ge$20\% missing.
+The mice with high rates of missing genotypes will show up as outliers
+for many of the diagnostics below.
+
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig1.pdf}
+\caption{Percent missing genotypes by mouse. The \Sexpr{numbers[n_pmis_gt_20]}
+mice with $\ge$20\% missing genotypes are labeled with their sample
+identifiers.}
+\end{center} \end{figure}
+
+
+\noindent \textbf{Verify sex}:
+
+To verify the sexes of the mice, we could look at the proportion of heterozygous genotype calls on the X chromosome.
+However, with array-based genotypes,
+it is most informative to look at the probe intensities for
+SNPs on the X and Y chromosomes.
+
+<<load_chrxy_int_info>>=
+load("R/diag_cache/snps_sex_diff.RData")
+xint <- read_csv_numer("Data/svenson_chrXint.csv", transpose=TRUE)
+yint <- read_csv_numer("Data/svenson_chrYint.csv", transpose=TRUE)
+xint <- xint[ind_ids(svenson),]
+yint <- yint[ind_ids(svenson),]
+xint_ave <- rowMeans(xint[, x_pval < 0.05/length(x_pval)], na.rm=TRUE)
+yint_ave <- rowMeans(yint[, y_pval < 0.05/length(y_pval)], na.rm=TRUE)
+sex <- substr(rownames(xint), 1, 1)
+@
+
+In Figure~2, we display a scatterplot of the average
+intensity for the \Sexpr{sum(y_pval < 0.05/length(y_pval))}
+Y chromosome markers vs the average intensity for
+\Sexpr{add_commas(sum(x_pval < 0.05/length(x_pval)))}
+X chromosome markers. Each point is a mouse, with the males in
+purple and the females in green.
+We omitted \Sexpr{numbers[sum(x_pval >= 0.05/length(x_pval))]} markers
+on the X chromosome that did not show a clear sex difference in allele
+intensities.
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig2.pdf}
+\caption{Average SNP microarray intensity for markers on the Y
+  chromosome versus that for markers on the X chromosome, for each
+  mouse. Mice that were nominally male are in purple, while females
+  are in green. Samples with $\ge$ 20\% missing genotypes are labeled in
+  orange. Two other samples of interest are labeled in black: F386
+  which appears to be XO, and M377 which was nominally male but
+  appears to be XX.}
+\end{center} \end{figure}
+
+There is a distinct cluster of male mice in the upper-left (low X
+chromosome intensity and high Y chromosome intensity) and a cluster
+of female mice in the lower-right (high X chromosome intensity and low
+Y chromsome intensity). However, there is one male mouse,
+\Sexpr{names(xint_ave)[sex=="M" & xint_ave > 0.45]}, who appears
+within the female cluster in the lower right, and so is likely really
+female. Also, there is one female mouse,
+\Sexpr{names(xint_ave)[sex=="F" & xint_ave < 0.45]}, in the
+lower-left, with reduced X chromosome intensity. This is likely an XO
+female. Other outliers in Figure~2 are mice with high rates of missing
+genotypes, including the nine mice with $\ge$ 20\% missing genotypes, which
+are labeled in orange.
+
+For sex inference, the SNP probe intensities give better separation of
+the two sexes than heterozygosity on the X chromosome (Figure~S1) and
+they enable us to distinguish between males and XO females.
+We could also, potentially,
+identify XXY males, who would have high
+average intensities on both sex chromosomes.
+
+
+<<compare_geno>>=
+cg <- compare_geno(svenson[n_missing(svenson, "ind", "prop") < 0.2,], cores=0)
+dup <- summary(cg)
+cg <- cg[upper.tri(cg)]
+@
+
+\noindent \textbf{Sample duplicates}:
+We look for potential sample duplicates by calculating the
+proportion of matching SNP genotypes for each pair of samples.
+The nine samples with $\ge$ 20\% missing
+genotypes look quite different from others, and also show some chance
+similarities (Supplementary Figure~S2A). If we omit those
+samples (Supplementary Figure~S2B), we find that the bulk of pairs share around 50\% of genotypes
+(shifted slightly below 50\%; the median is
+\Sexpr{myround(median(cg)*100, 1)}\%). A small proportion of pairs
+(\Sexpr{sum(cg > 0.6 & cg < 0.9)} pairs, or
+\Sexpr{myround(mean(cg > 0.6 & cg < 0.9)*100, 1)}\%) share a bit more,
+at around \Sexpr{myround(median(cg[cg > 0.6 & cg < 0.9])*100, 1)}\%.
+
+Two pairs have almost perfectly matching SNP
+genotypes. Mice \Sexpr{dup[1,"ind1"]} and \Sexpr{dup[1,"ind2"]} have
+matching genotypes at all except \Sexpr{numbers[dup[1,"n_mismatch"]]}
+of the \Sexpr{add_commas(dup[1,"n_typed"])} markers at which they were
+both genotyped.  Mice \Sexpr{dup[2,"ind1"]} and \Sexpr{dup[2,"ind2"]} have
+matching genotypes at all except \Sexpr{dup[2,"n_mismatch"]}
+of the \Sexpr{add_commas(dup[2,"n_typed"])} markers at which they were
+both genotyped. Note that the second pair includes
+\Sexpr{dup[2,"ind1"]} which was seen in Figure~2 to have mislabelled sex.
+
+These two pairs are clear duplicates. We are looking for a
+separation between the normal sharing between mice and the duplicates,
+and (having excluded samples with $\ge$ 20\% missing genotypes), these are the only pairs with
+$>$\Sexpr{ceiling(max(cg[cg < 0.9])*100)}\% matching genotypes.
+These unintended sample duplicates provide an estimate of the
+genotyping error rate, which looks to be well under 1/10,000.
+
+We will omit one mouse from each pair, for subsequent analyses. For
+the \Sexpr{dup[2,"ind1"]}/\Sexpr{dup[2,"ind2"]} pair, it seems clear that
+the sample corresponds to \Sexpr{dup[2,"ind2"]}, since it is a female.
+But for \Sexpr{dup[1,"ind1"]}/\Sexpr{dup[1,"ind2"]}, we can not tell
+which is the correct label. For later QTL analyses we would likely
+wish to omit both samples, but here we will just omit the second one,
+\Sexpr{dup[1,"ind2"]}.
+
+<<omit_two_more_samples>>=
+n <- n_ind(svenson)
+svenson <- readRDS("Data/svenson_v2.rds")
+stopifnot(n_ind(svenson) == n-2)
+pmis <- n_missing(svenson, "ind", "prop")*100
+@
+
+If the data included genome-scale phenotypes with strong genetic
+signals, such as gene expression data, we would at this point look
+further for possible sample mix-ups \citep{westra2011,broman2015}, but
+we will not do so here.
+
+
+
+
+\noindent \textbf{SNP probe intensities}:
+The distribution of probe intensities on the genotyping array can be a
+useful indicator of problem samples.
+In Figure~3A, we display density estimates of the array intensities
+for each of the \Sexpr{n_ind(svenson)} samples, after a
+$\log_{10}(x+1)$ transformation. We highlight the arrays corresponding
+to samples with appreciable missing genotypes. There are
+\Sexpr{numbers[sum(pmis >= 19.97)]} samples with $\ge$ 20\% missing data,
+shown in orange; their array intensities are shifted to the left
+and have a long right tail.
+There are \Sexpr{numbers[sum(pmis >= 8.9 & pmis < 19.97)]} samples with $\sim$9\%
+missing data (in pink); they show a much broader distribution of array intensities.
+There are \Sexpr{numbers[sum(pmis > 2.5 & pmis < 8.9)]} samples with
+2.5--5\% missing genotypes (in blue); many of these have a spike of
+intensities near 0.
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig3.pdf}
+\caption{Distribution of array intensities after a $\log_{10}(x+1)$
+  transformation. \textbf{A}: Kernel density estimates of the array
+  intensity distribution. Samples with $>$9\% missing genotype data
+  are in pink; samples with 2.5 -- 9\% missing genotype data are in
+  blue; the remaining samples are in gray. \textbf{B}: Scatterplot of
+  the 1st percentile versus the 99th percentile.}
+\end{center} \end{figure}
+
+In Figure~3B, we display a scatterplot of the 1st and 99th percentiles of the
+log array intensities, in an attempt to summarize the pattern seen in
+the densities in Figure~3A. Most of the samples with high rates of missing
+genotypes are outliers. We label one sample (F326) which has $\ge$20\%
+missing genotypes but has an array intensity distribution that is not as
+extreme as the other samples with $\ge$20\% missing genotypes.
+
+
+
+<<load_genotype_freq>>=
+gf_ind <- readRDS("R/diag_cache/snp_freq_ind.rds")
+n_mar_fcomp <- sum(colSums(do.call("cbind", svenson$founder_geno)==0)==0)
+@
+
+\noindent \textbf{SNP genotype frequencies}:
+The SNP genotype frequency distribution can be a useful diagnostic.
+For example, sample contamination can lead to excess heterozygotes.
+In DO mice, we split the SNP markers into four groups, based on the
+minor allele frequency (MAF) in the eight founder strains. To do so, we
+consider only the \Sexpr{add_commas(n_mar_fcomp)} with complete
+founder genotypes.
+
+To display the genotype frequencies, we use a ternary plot, which
+makes use of the fact that for any point within an equilateral
+triangle, the sum of the distances to the three sides is constant. And
+so the trinomial SNP genotype frequencies for an individual may be
+represented by a point in the triangle, with the distance
+to the lower edge being the frequency of heterozygotes, and the
+distances to the left and right edges being the frequencies of the two
+homozygotes.
+
+As seen in Figure~4, the DO mice form tight clusters
+with very similar SNP genotype
+frequencies, except for a few samples that show high heterozygosity, which
+are among the samples with high rates of missing genotype data.
+Another potential outlier is \Sexpr{names(which.min(gf_ind[[3]][,2]))},
+which shows somewhat reduced heterozygosity in SNPs with MAF = 3/8 or
+1/2.
+
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig4.pdf}
+\caption{SNP genotype frequencies by mouse, for SNPs split by their
+  minor allele frequency (MAF) in the eight founder strains. Trinomial
+  probabilities are represented by points in an equilateral triangle
+  using the distances to the three sides. Pink points indicate the
+  expected distributions.}
+\end{center} \end{figure}
+
+
+
+\noindent \textbf{Counts of crossovers}:
+Another important diagnostic is to estimate the number of crossovers,
+genome-wide, in each mouse. Problem samples may exhibit excessive
+crossovers. In some cases, a sample may exhibit fewer crossovers than
+expected.
+
+To estimate crossovers, we first reconstruct the diplotypes (that is,
+the pair of haplotypes) across the genome for each of the DO mice.
+We use a hidden Markov model (HMM) to calculate
+the probability of each of the 36 possible diplotypes (8 homozygotes
+plus 28 heterozygotes) at each genotyped SNP, given the multipoint SNP
+genotype data, with allowance for genotyping errors (Supplementary Figure~S3).
+Figure S3A shows the inferred diplotypes across the genome for a single
+DO mouse, and Figure S3B shows the detailed diplotype probabilities for
+that mouse, along one chromosome.
+
+There are a number of different methods for estimating the number of
+crossovers in a DO genome. We are using the simplest: at each
+genotyped SNP,
+pick the most probable diplotype (provided that it has probability at
+least 50\%) and then calculate the minimal number of crossovers that
+are consistent with that set of diplotypes.
+
+<<load_num_crossovers>>=
+load("R/diag_cache/maxmarg.RData")
+totxo <- rowSums(nxo)
+ngen <- svenson$covar$ngen
+totxo_clean <- totxo; totxo_clean[totxo > 450] <- NA
+mean_by_gen <- tapply(totxo_clean, ngen, mean, na.rm=TRUE)
+@
+
+The estimated numbers of crossovers for each DO mouse is shown in
+Figure~5, with points colored according to their generation.
+The mice in generation 8 have an average of
+\Sexpr{round(mean_by_gen["8"])} crossovers, while those in generation
+11 have an average of \Sexpr{round(mean_by_gen["11"])} crossovers.
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig5.pdf}
+\caption{Estimated number of crossovers in each mouse. Colors of the
+  points indicate the two groups of DO mice (generations 8 and 11).
+  Mice with $\ge$ 20\% missing genotypes are excluded.}
+\end{center} \end{figure}
+
+
+We have excluded the \Sexpr{numbers[sum(pmis >= 19.97)]} mice with $\ge$ 20\% missing genotypes.
+They all show $>$ \Sexpr{floor(min(totxo[pmis >= 19.97])/100)*100}
+crossovers,  and the mice with $>$ 50\% missing genotypes show $>$
+\Sexpr{floor(min(totxo[pmis > 50])/100)*100} crossovers. This is further
+evidence that these samples should be omitted.
+
+There are no other apparent outliers, in the numbers of crossovers. But note
+the importance of taking account of generation number.
+
+
+\noindent \textbf{Genotyping error rates}:
+The diplotype reconstructions offer the opportunity to identify
+likely SNP genotyping errors. To identify likely errors, we calculate
+the genotyping error LOD
+scores described by \citet{lincoln1992}. For each SNP marker in each DO mouse, we
+use the founder strains' SNP genotypes to collapse our 36-state
+diplotype probabilities to three-state SNP genotype probabilities.
+Considered in conjunction with the observed SNP genotype data, we
+calculate a LOD score statistic that indicates the likelihood that
+an individual SNP genotype is in error.
+
+<<error_lod>>=
+e <- readRDS("R/diag_cache/errorlod.rds")
+e <- do.call("cbind", e)
+errors_ind <- rowSums(e>2)/n_typed(svenson)*100
+@
+
+We generally focus on error LOD scores $>$2, which is a reasonably conservative
+threshold on potential errors. The estimated error rate in each mouse,
+with this criterion, is shown in Figure~6. The nine mice with $\ge$ 20\%
+missing genotypes all have estimated genotyping error rates $>$ 1\%.
+Three mice have error rates in the range 0.5--1.0\%, and these all
+showed $\sim$9\% missing genotypes. The next-highest estimated error
+rate is \Sexpr{round(errors_ind["M398"],1)}\% for mouse M398, which
+had shown about 5\% missing genotypes.
+The error rates for the other mice are extremely small. The
+median rate is just \Sexpr{myround(median(errors_ind)*100, 1)} in
+10,000.
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig6.pdf}
+\caption{Estimated percent genotyping errors for each mouse. The rates
+  are very small; the average is just \Sexpr{round(mean(errors_ind)*100, 1)}
+  in 10,000.}
+\end{center} \end{figure}
+
+In summary, the \Sexpr{numbers[sum(pmis>=19.97)]} mice with $\ge$
+20\% missing genotypes also showed excessive crossovers and high rates
+of apparent genotyping errors. We will omit these from further
+analyses. \Sexpr{Numbers[sum(pmis < 19.97 & pmis > 5)]}
+mice with 5--10\% missing genotypes showed slightly
+elevated genotyping error rates but no excess crossovers. We would not
+recommend omitting them.
+
+
+\subsection*{Marker diagnostics}
+
+<<summarize_markers>>=
+svenson <- svenson[n_missing(svenson, "ind", "prop") < 0.1997,]
+pmis_mar <- n_missing(svenson, "marker", "proportion")*100
+e <- e[ind_ids(svenson),]
+errors_mar <- colSums(e>2)/n_typed(svenson, "marker")*100
+@
+
+We now turn to the markers, to identify poorly behaved ones. As with
+the samples, we can look at the percent missing data, estimated rates
+of genotyping errors, and the genotype frequencies. Ultimately, we
+want to look at scatterplots of the allele intensities for the SNPs,
+which are most informative of problems, but with
+\Sexpr{add_commas(length(markers))} markers, we cannot inspect all of
+them, and so we use the other measures to help narrow our search.
+Throughout these analyses, we will focus on the \Sexpr{sum(pmis < 19.97)}
+mice with $<$ 20\% missing genotypes.
+
+
+\noindent \textbf{Missing data and genotyping errors}: We start by
+studying the amount of missing data at each marker, as well as
+estimated genotyping error rates (based on genotyping error LOD scores
+$>$ 2). A scatterplot of estimated error rate vs. percent missing data
+is shown in Figure~7.
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig7.png}
+\caption{Estimated percent genotyping errors vs. percent missing
+  genotypes by marker. Errors defined by genotyping error LOD score
+  $>$ 2. The vast majority of markers showed no apparent errors.}
+\end{center} \end{figure}
+
+The vast majority of markers have virtually no missing data: Of the
+\Sexpr{add_commas(length(pmis_mar))} informative markers,
+\Sexpr{add_commas(sum(pmis_mar == 0))} have no missing data, and
+\Sexpr{add_commas(sum(pmis_mar < 2))} are missing $<$ 2\%.
+However, as seen in Figure~7, there are a number of markers with
+appreciable missing data: \Sexpr{add_commas(sum(pmis_mar > 10))} are
+missing $>$ 10\%.
+
+Similarly, the vast majority of markers have virtually no genotypes
+with error LOD score $>$ 2, including \Sexpr{add_commas(sum(errors_mar == 0))}
+markers with no apparent errors. But \Sexpr{sum(errors_mar > 2)}
+markers have estimated error rates $>$ 2\%, including
+\Sexpr{sum(errors_mar > 10)} markers with estimated error rates $>$ 10\%.
+The \Sexpr{numbers[sum(errors_mar > 50)]} markers with error rates $>$
+50\% are highlighted in Figure 7.
+
+While it may not be apparent in Figure~7, there is a reasonably strong
+relationship between missing data and error rate: Markers with
+larger amounts of missing data tend to have higher genotyping error
+rates. For example, the mean error rate for markers with $<$ 2\%
+missing data is \Sexpr{round(mean(errors_mar[pmis_mar < 2])*100)} per
+10,000, while the mean error rate for markers with $\ge$ 20\% missing
+data is \Sexpr{round(mean(errors_mar[pmis_mar >= 19.97]))}\%,
+about
+\Sexpr{round(mean(errors_mar[pmis_mar >= 19.97])/mean(errors_mar[pmis_mar <2]), -1)}
+times higher.
+
+<<marker_freq>>=
+load("R/diag_cache/snp_freq_marker.RData")
+fg <- do.call("cbind", svenson$founder_geno)
+fg <- fg[,rownames(gf_mar)]
+maf <- colSums(fg==3)
+maf_do <- gf_mar[,2]/2 + gf_mar[,3]
+odd <- rownames(gf_mar)[maf_do>0.4 & maf==1]
+odd_pos <- find_markerpos(svenson, odd)
+@
+
+\noindent \textbf{SNP genotype frequencies}: The genotype frequencies
+at the markers are displayed in Figure 8, with markers split according
+to their minor allele frequency (MAF) among the 8 founder strains. The
+majority of markers conform reasonably well to our expectation. The
+most striking departure is that there are \Sexpr{length(odd)} markers
+with MAF=1/8 in the founders but where the minor allele in the DO mice
+is $>$ 40\%. The majority of these markers
+(\Sexpr{sum(odd_pos$chr==2)}/\Sexpr{length(odd)}) are from a region on
+chromosome 2, \Sexpr{round(min(odd_pos$pmap[odd_pos$chr==2]))} --
+\Sexpr{round(max(odd_pos$pmap[odd_pos$chr==2]))}~Mbp, where the WSB
+allele exhibits meiotic drive \citep{didion2016}.
+
+
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/fig8.png}
+\caption{SNP genotype frequencies by marker, with SNPs split by their
+  minor allele frequency (MAF) in the eight founder strains. Trinomial
+  probabilities are represented by points in an equilateral triangle
+  using the distances to the three sides. Pink points indicate the
+  expected distributions.}
+\end{center} \end{figure}
+
+<<maf4_low_het>>=
+odd4 <- names(maf)[maf==4 & gf_mar[,2] < 0.25]
+odd4_pos <- find_markerpos(svenson, odd4)
+odd4_pos <- cbind(odd4_pos, pmis=pmis_mar[odd4], err=errors_mar[odd4])
+@
+
+There are also a number of SNPs with MAF = 3/8 or 4/8 in the
+founder strains that have reduced frequency of heterozygotes. For example,
+there are \Sexpr{length(odd4)} SNPs with MAF = 4/8 in the founders but
+heterozygosity $<$ 0.25. Most of these SNPs
+(\Sexpr{sum(odd4_pos$pmis >= 10 | odd4_pos$err >= 10)}) have $\ge$ 10\%
+missing data or $\ge$ 10\% genotyping errors, or both. Of the remaining
+\Sexpr{numbers[sum(odd4_pos$pmis < 10 & odd4_pos$err < 10)]} markers, all but
+\Sexpr{numbers[sum(odd4_pos$pmis < 10 & odd4_pos$err < 10 & odd4_pos$chr != 2)]}
+are on chromosome 2, in the region with high WSB allele frequency.
+
+
+\noindent \textbf{SNP allele intensities}: The most important
+diagnostic for SNP quality is a scatterplot of the allele intensities.
+This is particularly informative when colored by both the observed
+genotype and by the predicted genotype giving the multipoint SNP
+information. The SNP allele intensities for a set of four SNPs are
+displayed in Figure~9. Each point is a single DO mouse; in the left
+panels, the points are colored by the observed genotype, with yellow
+and blue corresponding to the two homozygotes, green the
+heterozygote, and gray being missing. In the right panels, the points
+are colored by the predicted genotypes given the multipoint SNP
+information. Figures~9A and 9B correspond to a well-behaved SNP. The
+three genotype groups form tight, well-separated clusters, and the
+observed and predicted genotypes match. (Additional examples of
+well-behaved markers are shown in Supplementary Figure~S4.)
+
+\begin{figure} \begin{center}
+\includegraphics[height=\textheight-1in]{Figs/fig9.pdf}
+\caption{Allele intensity plots for four SNPs. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+Figures~9C and 9D correspond to a SNP where there is an additional
+cluster of genotypes, and where the genotype calling algorithm
+assigned it to the wrong genotype. At this particular SNP, there is a
+cluster of genotypes that were called homozygotes for the major allele
+but that are really heterozygotes. This is an example of a variable
+intensity oligonucleotide \citep[VINO;][]{didion2012}, where there is an
+additional SNP within the microarray probe that leads to reduced
+intensity of one allele. For this particular SNP, the founder strains
+129Sv/ImJ and PWK/PhJ appear to have null alleles for the array
+probe (data not shown). Additional examples of this type of SNP are
+shown in Supplementary Figure~S5.
+
+Figures~9E and 9F correspond to a SNP where the genotype calling
+algorithm made a clear mistake. There are three well-defined clusters
+of genotypes, but one of the homoyzgotes got called as a heterozygote:
+the cluster is green in Figure~9E but yellow (and gray, for missing)
+in Figure~9F. Figures~9G and 9H correspond to another example of a
+poorly called SNP,
+where two of the genotype clusters are not well separated, and the
+genotype calling algorithm made a mistake in identifying the clusters.
+Supplementary Figures~S6 and S7 show additional examples of mistakes
+in the genotype calling, either because the genotype clusters are
+arranged horizontally or are not well separated. Figure~S8 contains
+additional examples of particularly ugly SNPs.
+
+\subsection*{Effects of data cleaning}
+
+Identifying problem samples (mix-ups, or low quality samples) is
+arguably the most important aspect of the data cleaning effort. With
+high density SNP data, the presence of a small number of poorly
+behaved SNPs should have little influence on the results, as the
+hidden Markov model to reconstruct the DO genomes allows for the
+presence of genotyping errors and so should smooth over the problem
+markers. But it is worth checking: if we omit the most poorly behaved
+markers, how much will the diplotype probabilities change?
+
+Of the \Sexpr{add_commas(tot_mar(svenson))} informative markers, we
+omitted \Sexpr{sum(errors_mar > 5)} markers with estimated genotyping
+error rate $>$ 5\%, using a threshold of 2 on the genotyping error LOD
+score to define a presumed error. We then re-calculated the 36-state
+diplotype probabilities for all mice.
+
+For each mouse at each marker, we take the sum of the absolute
+differences between the diplotype probabilities, before and after data
+cleaning, as a measure of change. This takes values between 0 and 2,
+with 2 indicating that a complete different set of diplotypes have
+positive probabilities, after the data cleaning.
+
+<<load_prdiff>>=
+prdiff <- readRDS("R/diag_cache/prdiff.rds")
+p <- do.call("cbind", prdiff)
+@
+
+There are few changes in the diplotype probabilities.
+Of the \Sexpr{add_commas(ncol(p))} markers $\times$ \Sexpr{nrow(p)}
+individuals, there are just \Sexpr{add_commas(sum(p > 1))} sites
+where the sum of the absolute differences was $>$1, and just
+\Sexpr{add_commas(sum(p>1.5))} where it was $>$1.5.
+To illustrate the types of changes that are seen, Supplementary
+Figure~S9 shows the diplotype probabilities, before and after omitting
+\Sexpr{sum(errors_mar > 5)} bad markers, for three individuals on
+chromosome 9. In each case, an apparent recombinant segment gets removed.
+
+\clearpage
+\section*{Discussion}
+
+We have described our approach to cleaning genotype data from
+Diversity Outbred (DO) mice. We first look at the amount of missing
+data by individual, and then verify individuals' sex and look for
+sample duplicates. We then look for bad samples (identified by the
+amount of missing data, the SNP genotype frequencies, the
+estimated number of crossovers, and the estimated proportion of
+genotyping errors) and for bad markers (again looking at the amount of
+missing data, genotyping frequencies, and the estimated proportion of
+genotyping errors).
+
+In the data we used as an illustration, with \Sexpr{n} DO mice from
+generations 8 and 11, there were a set of
+\Sexpr{numbers[n-n_ind(svenson)-2]} samples with
+$\ge$ 20\% missing genotypes. These also showed excessive crossovers and
+high genotyping error rates and should be omitted from any analyses.
+There were also two apparent sample duplicates (one being a
+male/female pair), and one apparent XO female. Finally, there were four samples with
+higher-than-normal amounts of missing data and genotyping errors, but
+these samples looked okay otherwise and probably do not need to be
+omitted.
+
+The vast majority of markers appeared well behaved, but we also found a
+number of markers with a high proportion of apparent genotyping
+errors. Omitting these markers had small and relatively isolated
+effects on the diplotype probabilities. Our approach for identifying
+problem markers relied on our diplotype reconstructions, and so we may
+be missing some badly behaved SNPs, and the SNPs we miss may be the ones with the
+greatest influence on results. But if the overall SNP
+density is high, and the proportion of badly behaved SNPs is low, our
+approach should provide reasonable results.
+
+Verifying sex and identifying sample duplicates are two steps towards
+identifying sample mix-ups. If there are phenotypes with strong
+genetic effects, such as coat color, they may be useful to identify
+further mix-ups. Particularly useful in this regard are genome-scale
+phenotype data such as gene expression data, whether by microarrays
+or RNA-seq, which can perfectly identify individuals
+\citep{westra2011}. With gene expression data on multiple tissues,
+identified mix-ups can potentially be corrected \citep{broman2015}.
+
+We have not discussed the problem of cleaning phenotype data, but this
+is also important. We would focus on data visualizations, including
+histograms, plots of traits by time of measurement and/or by mouse
+identifiers, and scatterplots of traits against one another. These
+plots may reveal typographical errors in the data or inconsistencies in
+measurement units. They may also reveal important batch effects or
+other covariates that should be taken account in analyses, and
+may indicate the need for phenotype transformations (such as logarithm
+or square-root).
+
+We used R \citep{RCore} and R/qtl2
+(\url{https://kbroman.org/qtl2}) throughout this work. Another
+important R package for genotype diagnostics is argyle \citep{argyle},
+which provides a variety of diagnostics for SNP genotyping arrays.
+
+We focused on relatively simple data visualizations to diagnose
+potential problems, and that is the central tool for data cleaning.
+Make lots of graphs, focusing on graphs that will reveal anticipated
+problems but also following up on anything that looks strange: Is it a
+problem with the data, a problem with the sample, or a quirk of
+biology? Is it ignorable or fixable? What effect might it have on
+later results? We find interactive data visualizations, such as with
+R/qtlcharts \citep{qtlcharts}, useful in these efforts, particularly
+for identifying outlier samples in scatterplots.
+
+While we have focused on DO mice, our approach could be applied more
+generally, to other multiparent populations. The key summary
+statistics are the proportion of missing genotypes, the average
+microarray probe intensities for SNPs on the X and Y chromosomes, the
+proportion of heterozygous SNPs, the estimated number of crossovers,
+and the estimated genotyping error rate.
+
+
+\clearpage
+\section*{Acknowledgments}
+
+This work was supported in part by National Institutes of Health
+grant R01GM070683 (to K.W.B. and G.A.C.).
+
+
+\clearpage
+\bibliographystyle{genetics}
+\renewcommand*{\refname}{\normalfont\sffamily\bfseries Literature Cited}
+\bibliography{mpp_diag}
+
+
+
+% supplemental figures
+\renewcommand{\thefigure}{\textbf{S\arabic{figure}}}
+\setcounter{figure}{0}
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/figS1.pdf}
+\caption{Proportion of heterozygous SNPs on the X chromosome versus
+  the average microarray intensity for markers on the X chromosome,
+  for each mouse. Mice that were nominally male are in purple, while
+  females are in green. Samples with $\ge$ 20\% missing data are labeled in
+  orange. Two other samples of interest are labeled in black: F386
+  which appears to be XO, and M377 which was nominally male but
+  appears to be XX.}
+\end{center} \end{figure}
+
+
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/figS2.pdf}
+\caption{Distribution of percent matching genotypes for pairs of
+  mice. \textbf{A}: all samples. \textbf{B}: samples with $<$ 20\%
+  missing genotypes. Tick marks below the histograms indicate the
+  values for individual pairs.}
+\end{center} \end{figure}
+
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[width=\textwidth]{Figs/figS3.pdf}
+\caption{Illustration of genome reconstruction. \textbf{A}: Inferred
+  diplotype across the genome for mouse F413, with an arbitrary choice
+  of phase. (For example, if there is a region of homozygosity, the
+  haplotypes above can be swapped relative to the haplotypes below.)
+  White indicates unknown (no diplotype had probability $>$0.5).
+  \textbf{B}: Heat map of the diplotype probabilities for mouse F413
+  along chromosome 16. Only diplotypes that achieved probability $>$ 0.25 are shown.}
+\end{center} \end{figure}
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS4.pdf}
+\caption{Allele intensity plots for examples of well-behaved SNPs. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS5.pdf}
+\caption{Allele intensity plots for examples of SNPs with an
+  additional genotype cluster. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS6.pdf}
+\caption{Allele intensity plots for examples of SNPs that are
+  error-prone due to clusters oriented horizontally. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS7.pdf}
+\caption{Allele intensity plots for examples of SNPs that have been
+  poorly called. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS8.pdf}
+\caption{Allele intensity plots for examples of SNPs
+  that are particularly ugly. In the left panels,
+  points are colored according to the genotype calls, with yellow and
+  blue being the two homozygotes and green being the heterozygote;
+  gray points were not called. In the right panels, points are colored
+  by the inferred SNP genotypes, given the multipoint marker data and
+  the founders' genotypes; gray points could not be inferred.}
+\end{center} \end{figure}
+
+
+\clearpage
+\begin{figure} \begin{center}
+\includegraphics[height=8in]{Figs/figS9.pdf}
+\caption{Bivariate heatmaps displaying diplotype probabilities before
+  and after omitting badly behaved markers, for three selected
+  individuals on chromosome 9. Probabilities before and after
+  omitting markers are shown in white/blue and white/red color scales,
+  respectively. Only diplotypes that achieved probability $>$ 0.25 are
+  shown. Dark purple indicates the probability was high both before
+  and after data cleaning, blue indicates high before data cleaning
+  but low after, and red indicates low before but high after.}
+\end{center} \end{figure}
+
+
+
+\end{document}

@@ -1,0 +1,304 @@
+---
+title: "Founder errors"
+author: "Karl W Broman"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=11, fig.height=6,
+                      warning=FALSE, message=FALSE)
+options(scipen=10, width=113)
+```
+
+Here, I'll look for possible errors in the founder genotypes in the
+Svenson MegaMUGA data, though I'm not particularly hopeful. My
+experience so far has indicated that for the MegaMUGA, the founder
+genotypes seem perfectly clean, but that there may be some errors in
+the founder genotypes for the GigaMUGA array. Still, let's look.
+
+I'll first load the data and the inferred genotypes.
+
+```{r load_data}
+library(qtl2)
+library(qtl2fst)
+library(parallel)
+library(broman)
+source("func.R") # includes plot_intensities()
+sven <- readRDS("../Data/svenson_v2.rds")
+load("diag_cache/maxmarg.RData") # m, ph, nxo
+```
+
+We'll omit the mice with >20% missing genotypes.
+
+```{r drop_ind_with_high_missing}
+pmis <- n_missing(sven, "ind", "prop")*100
+sven <- sven[pmis < 20,]
+m <- m[pmis < 20,]
+nxo <- nxo[pmis < 20,]
+ph <- lapply(ph, function(a) a[pmis<20,,])
+```
+
+I'll next grab the founder genotypes, and count the number of missing
+genotypes.
+
+```{r grab_founder_genotypes}
+fg <- do.call("cbind", sven$founder_geno)
+n_fg0 <- colSums(fg==0)
+```
+
+## One missing founder genotype
+
+I want to first look at all markers that have exactly one missing
+founder genotype. Can we tell which genotype it should be? We'll
+compare the observed SNP genotypes to the inferred ones, with the
+different filled-in values
+
+```{r calc_perr_with_one_missing_founder}
+file <- "diag_cache/perr_one_missing_founder.rds"
+if(file.exists(file)) {
+    perr <- readRDS(file)
+} else {
+    wh <- which(n_fg0==1)
+    perr <- matrix(ncol=5, nrow=length(wh))
+    dimnames(perr) <- list(names(wh), c("n1", "n3", "p1", "p3", "ng"))
+    for(i in seq_along(wh)) {
+        mar <- names(wh)[i]
+        x <- pull_markers(sven, mar)
+
+        x_fg <- x$founder_geno[[1]][,1]
+        g <- x$geno[[1]][,1]
+        g[g==0] <- NA
+        perr[i,5] <- sum(!is.na(g))
+
+        for(j in 1:2) {
+            z <- x_fg
+            z[z==0] <- (j-1)*2+1
+            x$founder_geno[[1]][,1] <- z
+            snpinf <- predict_snpgeno(x, m[,names(x$geno)])[[1]][,1]
+            snpinf[snpinf==0] <- NA
+            perr[i,j] <- sum(snpinf != g, na.rm=TRUE)
+            perr[i,j+2] <- mean(snpinf != g, na.rm=TRUE)
+        }
+    }
+    perr <- as.data.frame(perr)
+    saveRDS(perr, file)
+}
+```
+
+There are `r sum(n_fg0==1)` markers (out of
+`r add_commas(length(n_fg0))` total markers) that are missing exactly one
+founder genotype. The scatterplot on the left, below,
+displays the number of inferred errors when taking the missing founder
+genotype to be A, vs the number of inferred errors when taking the
+missing founder genotype to be B.
+The scatterplot on the right displays the absolute difference vs the minimum.
+
+```{r plot_nerr_missing_one_founder}
+ymx <- max(perr$n1, perr$n3)
+par(mfrow=c(1,2))
+grayplot(perr$n1, perr$n3, pty="s",
+         xlab="No. errors with founder genotype A", ylab="No. errors with founder genotype B",
+         xlim=c(-0.5, ymx*1.05), ylim=c(-0.5, ymx*1.05), xaxs="i", yaxs="i")
+min_err <- apply(perr[,c("n1", "n3")], 1, min)
+dif_err <- abs(perr$n1 - perr$n3)
+grayplot(min_err, dif_err,
+         ylab="Difference in number of errors", xlab="Minimum number of errors",
+         xaxs="i", yaxs="i", xlim=c(-0.5, max(min_err)*1.05),
+         ylim=c(-0.5, max(dif_err)*1.05))
+```
+
+We're most interested in the cases where the difference (on the y-axis
+in the right-hand panel above) is large, and the minimum (on the
+x-axis) is small.
+
+Of the `r length(min_err)` markers with one missing founder, there are
+`r sum(dif_err <= 5)` where the difference in the inferred number of
+errors, plugging in the two possible founder genotypes, is &le; 5.
+These are markers where we really can't tell which genotype is
+correct. `r sum(dif_err <= 5 & min_err >= 15)` of these have a minimum
+number of errors of &ge; 15 (so about 5%), so rather high error rates.
+
+There are `r sum(dif_err >= 15)` markers where the difference in the
+number of errors is &ge; 15, and of these `r sum(dif_err >= 15 & min_err < 15)`
+also have a minimum number of errors, between the two choices of the
+missing founder genotype, < 15, and `r sum(dif_err >= 15 & min_err < 5)`
+have a minimum number of errors < 5.
+
+So there are some markers where it seems that we can tell which
+founder genotype is the correct one, but the markers with a missing
+founder genotype tend to be rather error-prone.
+
+
+## Founder errors
+
+Now let's look at markers that are not missing any founder genotypes,
+swap the genotype for one founder at a time, get the inferred SNP
+genotypes in the DO offspring, and count the number of apparent
+errors. Are there any cases where swapping a founder genotype results
+in fewer apparent errors?
+
+There are `r add_commas(sum(n_fg0==0))` markers that are not missing
+any founder genotypes. We need to first determine which ones have
+appreciable genotyping errors; there's no value in looking for founder
+genotyping errors in markers that look clean.
+
+```{r errors_markers_with_no_missing_founders}
+file <- "diag_cache/ndif_nomissing.rds"
+if(file.exists(file)) {
+    ndif_nomis <- readRDS(file)
+} else {
+    wh <- which(n_fg0==0)
+    x <- pull_markers(sven, names(wh))
+
+    snpinf <- predict_snpgeno(x, m, parallel::detectCores())
+    snpinf <- do.call("cbind", snpinf)
+    snpinf[snpinf==0] <- NA
+    g <- do.call("cbind", x$geno)[,colnames(snpinf)]
+    g[g==0] <- NA
+
+    ndif_nomis <- colSums(snpinf != g, na.rm=TRUE)
+    saveRDS(ndif_nomis, file)
+}
+```
+
+Of the `r add_commas(length(ndif_nomis))` markers with no missing founder
+genotypes, `r add_commas(sum(ndif_nomis==0))` have no apparent genotyping
+errors in the `r n_ind(sven)` DO offspring. We'll focus on the
+`r add_commas(sum(ndif_nomis >= 15))` markers that have &ge; 15 apparent
+errors.
+
+
+```{r perr_nomissing}
+file <- "diag_cache/perr_nomissing.rds"
+if(file.exists(file)) {
+    perr_nomis <- readRDS(file)
+} else {
+    wh <- which(n_fg0==0)
+    wh <- wh[ndif_nomis >= 15]
+
+    n_cores <- parallel::detectCores()
+
+    # function that does the work
+    study_marker_i <- function(i) {
+        mar <- names(wh)[i]
+        x <- pull_markers(sven, mar)
+        x_fg <- x$founder_geno[[1]][,1]
+        g <- x$geno[[1]][,1]
+        g[g==0] <- NA
+
+        result <- rep(NA, 10)
+        result[10] <- sum(!is.na(g))
+
+        snpinf <- predict_snpgeno(x, m[,names(x$geno)])[[1]][,1]
+        snpinf[snpinf==0] <- NA
+        result[1] <- sum(snpinf != g, na.rm=TRUE)
+
+        for(j in 1:8) {
+            z <- x_fg
+            z[j] <- 4-z[i] # swap genotype for founder j
+            x$founder_geno[[1]][,1] <- z
+            snpinf <- predict_snpgeno(x, m[,names(x$geno)])[[1]][,1]
+            snpinf[snpinf==0] <- NA
+            result[j+1] <- sum(snpinf != g, na.rm=TRUE)
+        }
+
+        result
+    }
+
+    # loop over all markers, in parallel
+    perr_nomis <- parallel::mclapply(seq_along(wh), study_marker_i, mc.cores=n_cores)
+
+    # reorgznize the results
+    perr_nomis <- matrix(unlist(perr_nomis), ncol=10, byrow=TRUE)
+    dimnames(perr_nomis) <- list(names(wh), c("nerr", paste0("nerr_", LETTERS[1:8]), "n"))
+    perr_nomis <- as.data.frame(perr_nomis)
+
+    saveRDS(perr_nomis, file)
+}
+
+# add "best" column
+perr_nomis$best <- apply(perr_nomis[,2:9], 1, min)
+
+mar1 <- perr_nomis["UNC890096",]
+mar2 <- perr_nomis["UNC294157",]
+```
+
+Of the `r nrow(perr_nomis)` markers considered, there are just
+`r numbers[sum(perr_nomis$best < perr_nomis$nerr)]` where a change in one of
+the founder genotypes results in a reduction in the number of apparent
+genotyping errors, and just
+`r numbers[sum(perr_nomis$best < perr_nomis$nerr & perr_nomis$best/perr_nomis$n < 0.25)]` where
+that change results in there being < 5% errors, markers
+`r vec2string(rownames(perr_nomis)[perr_nomis$best < 12])`.
+
+For marker `r rownames(mar1)`, flipping the allele for strain PWK results in a
+decrease in the apparent rate of genotyping errors, from
+`r myround(mar1$nerr/mar1$n*100, 1)`% to
+`r myround(mar1$nerr_G/mar1$n*100, 1)`%.
+
+Here are scatterplots of the predicted genotypes, with PWK having its
+observed allele (on the left) and the opposite allele (on the right).
+But it looks to me like the observed PWK genotype is the correct one,
+and that the genotype calls just had a lot of errors, mostly based on
+the presence of some homozygotes among the central heterozygote
+cluster when we take the opposite allele for PWK.
+
+
+```{r plot_intensities_mar1}
+mnam1 <- rownames(mar1)
+sven_sub <- pull_markers(sven, mnam1)
+m_sub <- m[,chr_names(sven_sub)]
+g <- sven_sub$geno[[1]]
+pg <- predict_snpgeno(sven_sub, m_sub)[[1]][,1]
+
+sven_sub$founder_geno[[1]]["G",1] <- 4 - sven_sub$founder_geno[[1]]["G",1]
+pg_alt <- predict_snpgeno(sven_sub, m_sub)[[1]][,1]
+par(mfrow=c(1,3))
+plot_intensities(mnam1, sven, geno=g, main=paste(mnam1, "\n(observed SNP genotypes)"))
+plot_intensities(mnam1, sven, geno=pg, main=paste(mnam1, "\n(predicted, using observed PWK)"))
+plot_intensities(mnam1, sven, geno=pg_alt, main=paste(mnam1, "\n(predicted, assuming PWK in error)"))
+```
+
+For marker `r rownames(mar2)`, flipping the allele for strain Cast results in a
+decrease in the apparent rate of genotyping errors, from
+`r myround(mar2$nerr/mar2$n*100, 1)`% to
+`r myround(mar2$nerr_F/mar2$n*100, 1)`%.
+
+Here are scatterplots of the predicted genotypes, when Cast has its
+observed allele (on the left) and the opposite allele (on the right).
+Again, I find the central figure (assuming that Cast is *not* in
+error) somewhat more compelling. It seems impossible to distinguish
+between the founder genotype being in error and a cluster of DO genotypes
+being in error.
+
+```{r plot_intensities_mar2}
+mnam2 <- rownames(mar2)
+sven_sub <- pull_markers(sven, mnam2)
+m_sub <- m[,chr_names(sven_sub)]
+g <- sven_sub$geno[[1]]
+pg <- predict_snpgeno(sven_sub, m_sub)[[1]][,1]
+
+sven_sub$founder_geno[[1]]["F",1] <- 4 - sven_sub$founder_geno[[1]]["F",1]
+pg_alt <- predict_snpgeno(sven_sub, m_sub)[[1]][,1]
+par(mfrow=c(1,3))
+plot_intensities(mnam2, sven, geno=g, main=paste(mnam1, "\n(observed SNP genotypes)"))
+plot_intensities(mnam2, sven, geno=pg, main=paste(mnam1, "\n(predicted, using observed Cast)"))
+plot_intensities(mnam2, sven, geno=pg_alt, main=paste(mnam1, "\n(predicted, assuming Cast in error)"))
+```
+
+## Summary
+
+I think the techniques here are potentially useful, but there aren't
+really any useful results. And so I'm inclined to just leave this
+part out of the paper.
+
+
+## Session info
+
+Here are the versions of R and packages that I'm using in this
+analysis.
+
+```{r session_info}
+devtools::session_info()
+```

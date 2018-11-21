@@ -1,0 +1,8 @@
+Figs/
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
+copy_from_bitbucket.sh
