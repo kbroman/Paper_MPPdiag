@@ -104,7 +104,9 @@ in complex quantitative traits. Data cleaning is more difficult in
 multiparent populations (experimental crosses derived from more than
 two founder strains), as individual SNP markers have incomplete
 information. We describe our process for cleaning SNP microarray
-genotype data from Diversity Outbred (DO) mice. We first consider the
+genotype data from Diversity Outbred (DO) mice, illustrated with
+genotype data from the MegaMUGA array on a set of 291 DO mice.
+We first consider the
 proportion of missing genotypes in each mouse, as an indicator of
 sample quality. We use microarray probe intensities for SNPs
 on the X and Y chromosomes to check mouse sex. We use the proportion
