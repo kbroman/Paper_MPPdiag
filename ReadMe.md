@@ -23,6 +23,8 @@ For [`R/diagnostics.Rmd`](R/diagnostics.Rmd), you will also need:
 - [R/qtlcharts](https://kbroman.org/qtlcharts)
 - [devtools](https://github.com/hadley/devtools)
 
+Current PDF of the paper at <https://www.biostat.wisc.edu/~kbroman/publications/mpp_diag.pdf>
+
 ---
 
 ### License
