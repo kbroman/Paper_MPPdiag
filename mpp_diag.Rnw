@@ -183,7 +183,7 @@ The mice were genotyped using the MegaMUGA SNP array \citep{gigamuga},
 which includes 77,808 markers. The genotyping was performed at Neogen
 (Lincoln, NE). Genotype calls using pairs of nucleotides A, C, G, and T were
 converted to genotypes AA, AB, BB, with A denoting the allele that was
-most frequenct among the eight founder strains (assigned arbitrarily
+most frequent among the eight founder strains (assigned arbitrarily
 when the two alleles were equally frequent).
 
 
@@ -328,7 +328,7 @@ intensities.
 There is a distinct cluster of male mice in the upper-left (low X
 chromosome intensity and high Y chromosome intensity) and a cluster
 of female mice in the lower-right (high X chromosome intensity and low
-Y chromsome intensity). However, there is one male mouse,
+Y chromosome intensity). However, there is one male mouse,
 \Sexpr{names(xint_ave)[sex=="M" & xint_ave > 0.45]}, who appears
 within the female cluster in the lower right, and so is likely really
 female. Also, there is one female mouse,
@@ -426,7 +426,7 @@ intensities near 0.
 \caption{Distribution of array intensities after a $\log_{10}(x+1)$
   transformation. \textbf{A}: Kernel density estimates of the array
   intensity distribution. Samples with $>$9\% missing genotype data
-  are in pink; samples with 2.5 -- 9\% missing genotype data are in
+  are in pink; samples with 2.5 -- 5\% missing genotype data are in
   blue; the remaining samples are in gray. \textbf{B}: Scatterplot of
   the 1st percentile versus the 99th percentile.}
 \end{center} \end{figure}
@@ -569,7 +569,7 @@ median rate is just \Sexpr{myround(median(errors_ind)*100, 1)} in
 \begin{figure} \begin{center}
 \includegraphics[width=\textwidth]{Figs/fig6.pdf}
 \caption{Estimated percent genotyping errors for each mouse. The rates
-  are very small; the average is just \Sexpr{round(mean(errors_ind)*100, 1)}
+  are very small; the median is just \Sexpr{round(median(errors_ind)*100, 1)}
   in 10,000.}
 \end{center} \end{figure}
 
@@ -730,7 +730,7 @@ shown in Supplementary Figure~S5.
 
 Figures~9E and 9F correspond to a SNP where the genotype calling
 algorithm made a clear mistake. There are three well-defined clusters
-of genotypes, but one of the homoyzgotes got called as a heterozygote:
+of genotypes, but one of the homozygotes got called as a heterozygote:
 the cluster is green in Figure~9E but yellow (and gray, for missing)
 in Figure~9F. Figures~9G and 9H correspond to another example of a
 poorly called SNP,
