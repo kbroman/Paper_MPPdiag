@@ -6,3 +6,8 @@ Figs/
 *.out
 *.pdf
 copy_from_bitbucket.sh
+Data/*.csv
+Data/*.rds
+RawData/*.fst
+R/diag_cache/
+LaTeX/mpp_diag.tex
