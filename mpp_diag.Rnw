@@ -177,7 +177,7 @@ We consider genotype data for \Sexpr{n_ind(svenson)} Diversity Outbred
 (DO) mice, including
 \Sexpr{sum(svenson$cross_info==8)} mice from generation 8 and
 \Sexpr{sum(svenson$cross_info==11)} mice from generation 11. These are
-a subset of the mice considered in \citet{gatti2014}.
+a subset of the mice considered in \citet{gatti2017}.
 
 The mice were genotyped using the MegaMUGA SNP array \citep{gigamuga},
 which includes 77,808 markers. The genotyping was performed at Neogen
