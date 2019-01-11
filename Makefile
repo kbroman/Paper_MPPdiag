@@ -1,7 +1,5 @@
 R_OPTS=--no-save --no-restore --no-init-file --no-site-file
 
-all: R/diagnostics.html mpp_diag.pdf R/founder_errors.html
-
 mpp_diag.pdf: LaTeX/mpp_diag.tex mpp_diag.bib \
 			  Figs/fig1.pdf Figs/fig2.pdf \
 			  Figs/fig3.pdf Figs/fig4.pdf \
@@ -21,33 +19,6 @@ LaTeX/mpp_diag.tex: mpp_diag.Rnw
 	[ -e LaTeX/mpp_diag.bib ] || (cd LaTeX;ln -s ../mpp_diag.bib)
 	[ -e LaTeX/Figs ] || (cd LaTeX;ln -s ../Figs)
 	R -e "knitr::knit('$<', '$@')"
-
-R/diagnostics.html: R/diagnostics.Rmd R/func.R Data/svenson.json RawData/intensities.fst
-	cd $(<D);R $(R_OPTS) -e "rmarkdown::render('$(<F)')"
-
-R/founder_errors.html: R/founder_errors.Rmd R/diagnostics.html
-	cd $(<D);R $(R_OPTS) -e "rmarkdown::render('$(<F)')"
-
-Data/svenson.json: R/prep_files.R Data/svenson_geno19.csv
-	R $(R_OPTS) -e "source('$<')"
-# also creates Data/svenson_covar.csv
-
-Data/svenson_geno19.csv: R/geneseek2qtl2.R \
-						 RawData/Jackson_Lab_Mouse_30jan2013_FinalReport.txt.gz \
-						 RawData/Jackson_Lab-Ciciotte_Mouse_05jun2013_FinalReport.txt.gz \
-						 Data/MM/MM_allelecodes.csv
-	R $(R_OPTS) -e "source('$<')"
-# also creates svenson_geno*.csv for other chr
-# plus Data/svenson_chrXint.csv and Data/svenson_chrYint.csv
-
-RawData/intensities.fst: R/geneseek2fst.R \
-						 RawData/Jackson_Lab_Mouse_30jan2013_FinalReport.txt.gz \
-						 RawData/Jackson_Lab-Ciciotte_Mouse_05jun2013_FinalReport.txt.gz
-	R $(R_OPTS) -e "source('$<')"
-
-RawData/%_FinalReport.txt: RawData/%_FinalReport.zip
-	cd $(<D);unzip $(<F)
-	touch $<
 
 Figs/fig%.pdf: R/fig%.R R/diagnostics.html
 	[ -d Figs ] || mkdir Figs
