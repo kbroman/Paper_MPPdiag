@@ -14,3 +14,6 @@ LaTeX/mpp_diag.tex
 Data/*.json
 R/diag_cache
 RawData/*.gz
+Data/MM
+R/*.html
+RawData/Jackson*.txt
