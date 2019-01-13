@@ -13,6 +13,7 @@ R/diag_cache/
 LaTeX/mpp_diag.tex
 Data/*.json
 R/diag_cache
+R/fig_cache
 RawData/*.gz
 Data/MM
 R/*.html
