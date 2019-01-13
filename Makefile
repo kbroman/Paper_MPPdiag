@@ -23,6 +23,7 @@ LaTeX/mpp_diag.tex: mpp_diag.Rnw
 	R -e "knitr::knit('$<', '$@')"
 
 R/diagnostics.html: R/diagnostics.Rmd R/func.R Data/svenson.json RawData/intensities.fst
+	[ -d R/diag_cache ] || mkdir R/diag_cache
 	cd $(<D);R $(R_OPTS) -e "rmarkdown::render('$(<F)')"
 
 R/founder_errors.html: R/founder_errors.Rmd R/diagnostics.html
@@ -55,6 +56,7 @@ Figs/fig%.pdf: R/fig%.R R/diagnostics.html
 
 Figs/fig%.png: R/fig%.R R/diagnostics.html
 	[ -d Figs ] || mkdir Figs
+	[ -d R/fig_cache ] || mkdir R/fig_cache
 	cd $(<D);R $(R_OPTS) -e "source('$(<F)')"
 
 clean:
