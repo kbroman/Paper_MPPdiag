@@ -11,3 +11,6 @@ Data/*.rds
 RawData/*.fst
 R/diag_cache/
 LaTeX/mpp_diag.tex
+Data/*.json
+R/diag_cache
+RawData/*.gz
