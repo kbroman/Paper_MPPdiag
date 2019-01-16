@@ -189,7 +189,7 @@ when the two alleles were equally frequent).
 
 \subsection*{Statistical methods}
 
-Analyses were conducted in R \citep{RCore} and with R/qtl2 (\url{https://kbroman.org/qtl2}).
+Analyses were conducted in R \citep{RCore} and with R/qtl2 \citep{broman2019}.
 Most of the statistical analyses involves visualization of summary statistics.
 
 To reconstruct the genomes of the DO mice, we use a hidden Markov
@@ -832,8 +832,8 @@ other covariates that should be taken account in analyses, and
 may indicate the need for phenotype transformations (such as logarithm
 or square-root).
 
-We used R \citep{RCore} and R/qtl2
-(\url{https://kbroman.org/qtl2}) throughout this work. Another
+We used R \citep{RCore} and R/qtl2 \citep{broman2019}
+throughout this work. Another
 important R package for genotype diagnostics is argyle \citep{argyle},
 which provides a variety of diagnostics for SNP genotyping arrays.
 
