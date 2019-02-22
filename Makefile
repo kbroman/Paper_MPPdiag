@@ -74,4 +74,4 @@ zip: mpp_diag.pdf
 	mv ../mpp_diag.zip .
 
 web: mpp_diag.pdf
-	scp mpp_diag.pdf broman-10.biostat.wisc.edu:Website/publications/
+	scp mpp_diag.pdf adhara.biostat.wisc.edu:Website/publications/
