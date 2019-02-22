@@ -151,21 +151,22 @@ stock \citep{mott2000,mott2002}, MAGIC lines \citep{cavanagh2008,
 kover2009}, the Collaborative Cross \citep{churchill2004}, and
 Diversity Outbred mice \citep{churchill2012, svenson2012}. Data
 cleaning is more difficult in multiparent populations, as individual
-SNP markers have incomplete information.
+SNP markers have incomplete information since they generally have only
+two alleles.
 
 <<load_raw_data>>=
 svenson <- readRDS("Data/svenson_v1.rds")
 markers <- unique(read_fst("RawData/intensities.fst", columns="snp")[,1])
 @
 
-A key principle in data cleaning is to think about what might have
-gone wrong, and how it might be revealed in the data. Visualize the
-data in many ways, and if you see something weird, try to figure out
-what is going on.
-
 We illustrate our process for cleaning genotype data using
 MegaMUGA SNP array data \citep{gigamuga}
 on \Sexpr{n_ind(svenson)} Diversity Outbred (DO) mice.
+A key principle that guides our approach to data cleaning is to think
+about what might have gone wrong, and how it might be revealed in the
+data. We visualize the data in many ways, and when we see something
+unexpected, we try to determine the underlying cause.
+
 
 
 \clearpage
@@ -200,7 +201,8 @@ uses the results of \citet{broman2012a}. We used the genetic map from
 rate of 0.2\%, and used the Carter-Falconer map function \citep{carter1951}.
 The HMM provides a probability for each possible 36-state diplotype at
 each marker for each mouse. (We use the term diplotype to refer to a
-pair of founder haplotypes.)
+pair of founder haplotypes. The 36 diplotypes consist of 8 homozygotes
+and 28 heterozygotes.)
 
 To estimate the number of crossovers in each individual, we inferred
 the 36-state diplotype at each locus as the state with maximum
@@ -275,7 +277,8 @@ are missing very little data, but there are
 \Sexpr{sum(pmis > 2)} mice with $>$2\% missing genotypes,
 including \Sexpr{numbers[n_pmis_gt_20]} mice with $\ge$20\% missing.
 The mice with high rates of missing genotypes will show up as outliers
-for many of the diagnostics below.
+for many of the diagnostics below. The problem samples are clustered within a common
+batch, which may indicate a problem with sample processing.
 
 
 \begin{figure} \begin{center}
@@ -328,18 +331,21 @@ intensities.
 There is a distinct cluster of male mice in the upper-left (low X
 chromosome intensity and high Y chromosome intensity) and a cluster
 of female mice in the lower-right (high X chromosome intensity and low
-Y chromosome intensity). However, there is one male mouse,
-\Sexpr{names(xint_ave)[sex=="M" & xint_ave > 0.45]}, who appears
-within the female cluster in the lower right, and so is likely really
-female. Also, there is one female mouse,
-\Sexpr{names(xint_ave)[sex=="F" & xint_ave < 0.45]}, in the
+Y chromosome intensity). However,
+\Sexpr{names(xint_ave)[sex=="M" & xint_ave > 0.45]}
+was labeled male but appears within the female cluster in the lower
+right, and so is likely female.
+Also,
+\Sexpr{names(xint_ave)[sex=="F" & xint_ave < 0.45]}
+is labeled female
+but appears in the
 lower-left, with reduced X chromosome intensity. This is likely an XO
 female. Other outliers in Figure~2 are mice with high rates of missing
 genotypes, including the nine mice with $\ge$ 20\% missing genotypes, which
 are labeled in orange.
 
 For sex inference, the SNP probe intensities give better separation of
-the two sexes than heterozygosity on the X chromosome (Figure~S1) and
+the two sexes than heterozygosity on the X chromosome (Figure~S1), and
 they enable us to distinguish between males and XO females.
 We could also, potentially,
 identify XXY males, who would have high
@@ -411,9 +417,9 @@ useful indicator of problem samples.
 In Figure~3A, we display density estimates of the array intensities
 for each of the \Sexpr{n_ind(svenson)} samples, after a
 $\log_{10}(x+1)$ transformation. We highlight the arrays corresponding
-to samples with appreciable missing genotypes. There are
-\Sexpr{numbers[sum(pmis >= 19.97)]} samples with $\ge$ 20\% missing data,
-shown in orange; their array intensities are shifted to the left
+to samples with appreciable missing genotypes. The
+\Sexpr{numbers[sum(pmis >= 19.97)]} samples with $\ge$ 20\% missing data
+are highlighted in orange; their array intensities are shifted to the left
 and have a long right tail.
 There are \Sexpr{numbers[sum(pmis >= 8.9 & pmis < 19.97)]} samples with $\sim$9\%
 missing data (in pink); they show a much broader distribution of array intensities.
@@ -451,7 +457,8 @@ For example, sample contamination can lead to excess heterozygotes.
 In DO mice, we split the SNP markers into four groups, based on the
 minor allele frequency (MAF) in the eight founder strains. To do so, we
 consider only the \Sexpr{add_commas(n_mar_fcomp)} with complete
-founder genotypes.
+founder genotypes. (For \Sexpr{add_commas(tot_mar(svenson) - n_mar_fcomp)}
+markers, at least one of the founders has missing genotype.)
 
 To display the genotype frequencies, we use a ternary plot, which
 makes use of the fact that for any point within an equilateral
@@ -503,7 +510,7 @@ crossovers in a DO genome. We are using the simplest: at each
 genotyped SNP,
 pick the most probable diplotype (provided that it has probability at
 least 50\%) and then calculate the minimal number of crossovers that
-are consistent with that set of diplotypes.
+are consistent with that set of predicted diplotypes.
 
 <<load_num_crossovers>>=
 load("R/diag_cache/maxmarg.RData")
@@ -826,11 +833,12 @@ We have not discussed the problem of cleaning phenotype data, but this
 is also important. We would focus on data visualizations, including
 histograms, plots of traits by time of measurement and/or by mouse
 identifiers, and scatterplots of traits against one another. These
-plots may reveal typographical errors in the data or inconsistencies in
-measurement units. They may also reveal important batch effects or
-other covariates that should be taken account in analyses, and
-may indicate the need for phenotype transformations (such as logarithm
-or square-root).
+plots may reveal typographical errors in the data or inconsistencies
+in measurement units. They may also indicate the need for phenotype
+transformations (such as logarithm or square-root), or they may reveal
+important batch effects or other covariates that should be taken into
+account in analyses.
+
 
 We used R \citep{RCore} and R/qtl2 \citep{broman2019}
 throughout this work. Another
@@ -840,7 +848,7 @@ which provides a variety of diagnostics for SNP genotyping arrays.
 We focused on relatively simple data visualizations to diagnose
 potential problems, and that is the central tool for data cleaning.
 Make lots of graphs, focusing on graphs that will reveal anticipated
-problems but also following up on anything that looks strange: Is it a
+problems but also following up on anything unexpected: Is it a
 problem with the data, a problem with the sample, or a quirk of
 biology? Is it ignorable or fixable? What effect might it have on
 later results? We find interactive data visualizations, such as with
