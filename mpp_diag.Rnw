@@ -458,7 +458,7 @@ In DO mice, we split the SNP markers into four groups, based on the
 minor allele frequency (MAF) in the eight founder strains. To do so, we
 consider only the \Sexpr{add_commas(n_mar_fcomp)} with complete
 founder genotypes. (For \Sexpr{add_commas(tot_mar(svenson) - n_mar_fcomp)}
-markers, at least one of the founders has missing genotype.)
+of the polymorphic markers, at least one of the founders has missing genotype.)
 
 To display the genotype frequencies, we use a ternary plot, which
 makes use of the fact that for any point within an equilateral
