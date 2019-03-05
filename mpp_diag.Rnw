@@ -100,31 +100,35 @@ multi-parent populations, data diagnostics
 
 Data cleaning is an important first step in most statistical analyses,
 including efforts to map the genetic loci that contribute to variation
-in complex quantitative traits. Data cleaning is more difficult in
-multiparent populations (experimental crosses derived from more than
-two founder strains), as individual SNP markers have incomplete
-information. We describe our process for cleaning SNP microarray
-genotype data from Diversity Outbred (DO) mice, illustrated with
-genotype data from the MegaMUGA array on a set of 291 DO mice.
-We first consider the
-proportion of missing genotypes in each mouse, as an indicator of
+in quantitative traits.
+Here we illustrate approaches to quality control and cleaning of
+array-based genotyping data for multiparent populations
+(experimental crosses derived from more than
+two founder strains), using MegaMUGA array data from
+a set of 291 from Diversity Outbred (DO) mice.
+Our approach employs data visualizations that can reveal
+problems at the level of individual mice or with individual SNP markers.
+We find that the
+proportion of missing genotypes for each mouse is an effective indicator of
 sample quality. We use microarray probe intensities for SNPs
-on the X and Y chromosomes to check mouse sex. We use the proportion
-of matching SNP genotypes in pairs of mice to detect sample
-duplicates. We use a hidden Markov model to calculate genotype
-probabilities across the genome for each mouse, which we use to
-estimate the number of crossovers in each mouse, and to identify
-potential genotyping errors. The estimated genotyping error rate, by
-mouse sample and by SNP marker, is a useful diagnostic. We also
-consider the SNP genotype frequencies by mouse and by marker, with
-markers grouped according to the minor allele frequency in the founder
+on the X and Y chromosomes to confirm the sex of each mouse, and
+we use the proportion
+of matching SNP genotypes between pairs of mice to detect sample
+duplicates. We use a hidden Markov model (HMM) reconstruction of the founder haplotype mosaic
+across each mouse genome to estimate the number of crossovers and to identify
+potential genotyping errors.
+To evaluate marker quality, we find that missing data and genotyping error rates
+are the most effective diagnostics.
+We also examine the SNP genotype frequencies with
+markers grouped according to their minor allele frequency in the founder
 strains. For markers with high apparent error rates, a scatterplot of
-the allele intensities from the microarray, colored by both observed
-and predicted genotypes, can be revealing about the underlying cause.
-But the detection of low-quality samples is more important than the
-detection of low-quality markers.
-
-
+the allele-specific probe intensities can reveal the underlying cause
+of incorrect genotype calls.
+The decision to include or exclude low-quality samples
+can have a significant impact on the mapping
+results for a given study. We find that the impact of low-quality markers
+on a given study is often minimal, but reporting problematic markers
+can improve the utility of the genotyping array across many studies.
 
 
 
@@ -133,26 +137,30 @@ detection of low-quality markers.
 
 \section*{Introduction}
 
-Data cleaning is a critical first step in analyses to identify the
-quantitative trait loci (QTL) that contribute to a complex
-quantitative trait. Despite its importance, little has been written
-about this part of the process. \citet{lincoln1992} discussed the
+Data cleaning is a critical first step in analyses to map
+quantitative trait loci (QTL).  Genotyping errors and
+especially the inclusion of poor quality or
+erroneously labeled samples can reduce the power to detect QTL.
+Despite its importance, relatively little has been written
+about the data cleaning process. \citet{lincoln1992} discussed the
 detection of genotyping errors in genetic map construction.
 \citet[Ch. 3]{broman_sen} discussed data cleaning more broadly, in
 biparental crosses. \citet{argyle}, in presenting the R package
 argyle for quality control for SNP genotyping arrays, emphasized
 consideration of the amount of missing genotypes, frequency of
 heterozygotes, and the distribution of array intensities.
+Here we address data cleaning with an emphasis on
+multiparent populations and array-based genotyping.
 
-Multiparent populations (experimental crosses derived from more than
-two founder strains) have become a popular design for complex trait
+Multiparent populations are experimental crosses derived from more than
+two founder strains. They have become a popular tool for complex trait
 genetics in experimental organisms. Examples include heterogeneous
 stock \citep{mott2000,mott2002}, MAGIC lines \citep{cavanagh2008,
 kover2009}, the Collaborative Cross \citep{churchill2004}, and
-Diversity Outbred mice \citep{churchill2012, svenson2012}. Data
-cleaning is more difficult in multiparent populations, as individual
-SNP markers have incomplete information since they generally have only
-two alleles.
+Diversity Outbred mice \citep{churchill2012, svenson2012}. Genotype data
+cleaning is more difficult in multiparent populations as individual
+SNP markers are generally limited to two alleles and thus multiple marker genotypes
+are required to uniquely identify the founder strain origins at any locus.
 
 <<load_raw_data>>=
 svenson <- readRDS("Data/svenson_v1.rds")
@@ -162,6 +170,8 @@ markers <- unique(read_fst("RawData/intensities.fst", columns="snp")[,1])
 We illustrate our process for cleaning genotype data using
 MegaMUGA SNP array data \citep{gigamuga}
 on \Sexpr{n_ind(svenson)} Diversity Outbred (DO) mice.
+The SNP probe selection for this and other MUGA platforms
+has been optimized to distinguish among the founder haplotypes of the DO.
 A key principle that guides our approach to data cleaning is to think
 about what might have gone wrong, and how it might be revealed in the
 data. We visualize the data in many ways, and when we see something
@@ -200,15 +210,15 @@ uses the results of \citet{broman2012a}. We used the genetic map from
 \citet{cox2009}, assumed a genotyping error
 rate of 0.2\%, and used the Carter-Falconer map function \citep{carter1951}.
 The HMM provides a probability for each possible 36-state diplotype at
-each marker for each mouse. (We use the term diplotype to refer to a
+each marker for each mouse. The term diplotype refers to a
 pair of founder haplotypes. The 36 diplotypes consist of 8 homozygotes
-and 28 heterozygotes.)
+and 28 heterozygotes.
 
 To estimate the number of crossovers in each individual, we inferred
 the 36-state diplotype at each locus as the state with maximum
-marginal probability, provided that it was $>$ 0.5. (In cases where
+marginal probability, provided that it was $>$ 0.5. In cases where
 all diplotypes had probability $<$ 0.5, the diplotype state was
-treated as missing.) We then calculated
+treated as missing. We then calculated
 the minimum number of crossovers consistent with these inferred
 diplotypes.
 
@@ -220,7 +230,9 @@ calculate the error LOD score as in equation 1b of \citet{lincoln1992}.
 
 To obtain predicted SNP genotypes for each DO mouse, we collapsed the
 predicted 36-state diplotypes to 3-state SNP genotypes using the
-SNP genotypes in the founders.
+SNP genotypes in the founders. The predicted genotypes can differ from
+the observed genotypes due to the smoothing effects of the HMM
+haplotype reconstruction.
 
 
 \subsection*{Data and software availability}
@@ -366,10 +378,16 @@ genotypes look quite different from others, and also show some chance
 similarities (Supplementary Figure~S2A). If we omit those
 samples (Supplementary Figure~S2B), we find that the bulk of pairs share around 50\% of genotypes
 (shifted slightly below 50\%; the median is
-\Sexpr{myround(median(cg)*100, 1)}\%). A small proportion of pairs
+\Sexpr{myround(median(cg)*100, 1)}\%).
+The probability of unrelated individuals sharing the same genotypes
+at a marker is determined by the SNP minor allele frequency.
+The average proportion of sharing is a property of both the population
+structure and the array probe selection strategy.
+A small proportion of pairs
 (\Sexpr{sum(cg > 0.6 & cg < 0.9)} pairs, or
 \Sexpr{myround(mean(cg > 0.6 & cg < 0.9)*100, 1)}\%) share a bit more,
 at around \Sexpr{myround(median(cg[cg > 0.6 & cg < 0.9])*100, 1)}\%.
+These likely represent siblings or avuncular relationships in the DO population.
 
 Two pairs have almost perfectly matching SNP
 genotypes. Mice \Sexpr{dup[1,"ind1"]} and \Sexpr{dup[1,"ind2"]} have
@@ -379,7 +397,7 @@ both genotyped.  Mice \Sexpr{dup[2,"ind1"]} and \Sexpr{dup[2,"ind2"]} have
 matching genotypes at all except \Sexpr{dup[2,"n_mismatch"]}
 of the \Sexpr{add_commas(dup[2,"n_typed"])} markers at which they were
 both genotyped. Note that the second pair includes
-\Sexpr{dup[2,"ind1"]} which was seen in Figure~2 to have mislabelled sex.
+\Sexpr{dup[2,"ind1"]} which was seen in Figure~2 to have mislabeled sex.
 
 These two pairs are clear duplicates. We are looking for a
 separation between the normal sharing between mice and the duplicates,
@@ -388,12 +406,13 @@ $>$\Sexpr{ceiling(max(cg[cg < 0.9])*100)}\% matching genotypes.
 These unintended sample duplicates provide an estimate of the
 genotyping error rate, which looks to be well under 1/10,000.
 
-We will omit one mouse from each pair, for subsequent analyses. For
+We will omit one mouse from each pair, for the purpose of illustrating our
+genotype quality control analyses. For
 the \Sexpr{dup[2,"ind1"]}/\Sexpr{dup[2,"ind2"]} pair, it seems clear that
 the sample corresponds to \Sexpr{dup[2,"ind2"]}, since it is a female.
 But for \Sexpr{dup[1,"ind1"]}/\Sexpr{dup[1,"ind2"]}, we can not tell
 which is the correct label. For later QTL analyses we would likely
-wish to omit both samples, but here we will just omit the second one,
+wish to omit both samples, but for this illustration we will just omit the second one,
 \Sexpr{dup[1,"ind2"]}.
 
 <<omit_two_more_samples>>=
@@ -452,7 +471,8 @@ n_mar_fcomp <- sum(colSums(do.call("cbind", svenson$founder_geno)==0)==0)
 @
 
 \noindent \textbf{SNP genotype frequencies}:
-The SNP genotype frequency distribution can be a useful diagnostic.
+The SNP genotype frequency distribution across all markers within an animal
+can be a useful diagnostic.
 For example, sample contamination can lead to excess heterozygotes.
 In DO mice, we split the SNP markers into four groups, based on the
 minor allele frequency (MAF) in the eight founder strains. To do so, we
@@ -495,8 +515,8 @@ genome-wide, in each mouse. Problem samples may exhibit excessive
 crossovers. In some cases, a sample may exhibit fewer crossovers than
 expected.
 
-To estimate crossovers, we first reconstruct the diplotypes (that is,
-the pair of haplotypes) across the genome for each of the DO mice.
+To estimate crossovers, we first reconstruct the diplotypes
+across the genome for each of the DO mice.
 We use a hidden Markov model (HMM) to calculate
 the probability of each of the 36 possible diplotypes (8 homozygotes
 plus 28 heterozygotes) at each genotyped SNP, given the multipoint SNP
@@ -551,9 +571,10 @@ the genotyping error LOD
 scores described by \citet{lincoln1992}. For each SNP marker in each DO mouse, we
 use the founder strains' SNP genotypes to collapse our 36-state
 diplotype probabilities to three-state SNP genotype probabilities.
-Considered in conjunction with the observed SNP genotype data, we
-calculate a LOD score statistic that indicates the likelihood that
-an individual SNP genotype is in error.
+We then compare the predicted SNP genotypes based on the haplotype reconstruction
+with the observed SNP genotypes, and we
+calculate a LOD score statistic that measures the evidence for
+an individual SNP genotype being in error.
 
 <<error_lod>>=
 e <- readRDS("R/diag_cache/errorlod.rds")
@@ -585,8 +606,17 @@ In summary, the \Sexpr{numbers[sum(pmis>=19.97)]} mice with $\ge$
 of apparent genotyping errors. We will omit these from further
 analyses. \Sexpr{Numbers[sum(pmis < 19.97 & pmis > 5)]}
 mice with 5--10\% missing genotypes showed slightly
-elevated genotyping error rates but no excess crossovers. We would not
-recommend omitting them.
+elevated genotyping error rates but no excess of crossovers.
+We chose to not omit them.
+
+The factors that impact the decision to omit samples will
+vary from study to study and may also depend on the aims of the analysis.
+Samples that are clearly outliers will likely have a negative impact on
+mapping power and precision. It is not uncommon for some samples to fall into a gray
+area where the quality is less than ideal but, based on the number of
+predicted crossovers, the diplotype reconstruction appears to be reliable.
+The impact on power of omitting these samples may be greater if the
+sample size is already small.
 
 
 \subsection*{Marker diagnostics}
@@ -601,7 +631,7 @@ errors_mar <- colSums(e>2)/n_typed(svenson, "marker")*100
 We now turn to the markers, to identify poorly behaved ones. As with
 the samples, we can look at the percent missing data, estimated rates
 of genotyping errors, and the genotype frequencies. Ultimately, we
-want to look at scatterplots of the allele intensities for the SNPs,
+want to look at scatterplots of the allele-specific probe intensities for the SNPs,
 which are most informative of problems, but with
 \Sexpr{add_commas(length(markers))} markers, we cannot inspect all of
 them, and so we use the other measures to help narrow our search.
@@ -699,7 +729,7 @@ are on chromosome 2, in the region with high WSB allele frequency.
 
 
 \noindent \textbf{SNP allele intensities}: The most important
-diagnostic for SNP quality is a scatterplot of the allele intensities.
+diagnostic for SNP quality is a scatterplot of the allele-specific probe intensities.
 This is particularly informative when colored by both the observed
 genotype and by the predicted genotype giving the multipoint SNP
 information. The SNP allele intensities for a set of four SNPs are
@@ -729,7 +759,7 @@ assigned it to the wrong genotype. At this particular SNP, there is a
 cluster of genotypes that were called homozygotes for the major allele
 but that are really heterozygotes. This is an example of a variable
 intensity oligonucleotide \citep[VINO;][]{didion2012}, where there is an
-additional SNP within the microarray probe that leads to reduced
+additional SNP within the probe that leads to reduced
 intensity of one allele. For this particular SNP, the founder strains
 129Sv/ImJ and PWK/PhJ appear to have null alleles for the array
 probe (data not shown). Additional examples of this type of SNP are
@@ -750,11 +780,10 @@ additional examples of particularly ugly SNPs.
 
 \subsection*{Effects of data cleaning}
 
-Identifying problem samples (mix-ups, or low quality samples) is
-arguably the most important aspect of the data cleaning effort. With
-high density SNP data, the presence of a small number of poorly
-behaved SNPs should have little influence on the results, as the
-hidden Markov model to reconstruct the DO genomes allows for the
+High-density SNP data are sufficiently redundant
+that the presence of a small number of poorly
+behaved SNPs should have little influence on the results. The
+hidden Markov model used to reconstruct the DO genomes allows for the
 presence of genotyping errors and so should smooth over the problem
 markers. But it is worth checking: if we omit the most poorly behaved
 markers, how much will the diplotype probabilities change?
@@ -789,15 +818,26 @@ chromosome 9. In each case, an apparent recombinant segment gets removed.
 \clearpage
 \section*{Discussion}
 
-We have described our approach to cleaning genotype data from
-Diversity Outbred (DO) mice. We first look at the amount of missing
-data by individual, and then verify individuals' sex and look for
-sample duplicates. We then look for bad samples (identified by the
-amount of missing data, the SNP genotype frequencies, the
-estimated number of crossovers, and the estimated proportion of
-genotyping errors) and for bad markers (again looking at the amount of
-missing data, genotyping frequencies, and the estimated proportion of
-genotyping errors).
+Our approach to cleaning genotype data is built around a series of diagnostic
+visualizations that can help us to identify problematic samples and markers.
+Identifying problem samples (mix-ups and low quality samples) is
+arguably the most important outcome of data cleaning.
+A small number of incorrect samples can impact the power of QTL mapping whereas
+poorly performing markers generally have little impact on diplotype reconstructions.
+
+The simplest diagnostic for sample quality, the amount of missing
+data by individual, is also highly effective.
+In addition to high rates of missing data, low quality samples will display
+higher rates of genotype calling errors,
+unexpectedly high numbers of predicted crossover events,
+and unusual allele frequencies.
+It is important to verify that samples are not duplicated and that the
+correct sex is assigned to individuals because these problem will not
+be captured in other quality control diagnostics.
+
+The proportion of missing data is also a good diagnostic for SNP marker quality.
+Additional diagnostics include genotyping frequencies, and the estimated proportion of
+genotyping errors.
 
 In the data we used as an illustration, with \Sexpr{n} DO mice from
 generations 8 and 11, there were a set of
@@ -808,17 +848,10 @@ There were also two apparent sample duplicates (one being a
 male/female pair), and one apparent XO female. Finally, there were four samples with
 higher-than-normal amounts of missing data and genotyping errors, but
 these samples looked okay otherwise and probably do not need to be
-omitted.
+omitted. Decisions about which samples to include or omit
+should be based on the likely impact on mapping analysis and may depend on
+factors such as the sample size and the extent and quality of phenotyping data.
 
-The vast majority of markers appeared well behaved, but we also found a
-number of markers with a high proportion of apparent genotyping
-errors. Omitting these markers had small and relatively isolated
-effects on the diplotype probabilities. Our approach for identifying
-problem markers relied on our diplotype reconstructions, and so we may
-be missing some badly behaved SNPs, and the SNPs we miss may be the ones with the
-greatest influence on results. But if the overall SNP
-density is high, and the proportion of badly behaved SNPs is low, our
-approach should provide reasonable results.
 
 Verifying sex and identifying sample duplicates are two steps towards
 identifying sample mix-ups. If there are phenotypes with strong
@@ -828,6 +861,18 @@ phenotype data such as gene expression data, whether by microarrays
 or RNA-seq, which can perfectly identify individuals
 \citep{westra2011}. With gene expression data on multiple tissues,
 identified mix-ups can potentially be corrected \citep{broman2015}.
+
+The vast majority of markers appeared well behaved, but we also found a
+number of markers with a high proportion of apparent genotyping
+errors. Omitting these markers had small and relatively isolated
+effects on the diplotype probabilities. Our approach for identifying
+problem markers relied on our diplotype reconstructions, and so we may
+be missing some badly behaved SNPs, and the SNPs we miss may be the ones with the
+greatest influence on results. But if the overall SNP
+density is high, and the proportion of badly behaved SNPs is low, our
+approach should provide reasonable results. While poor quality markers
+may have little impact on any given study, identifying and annotating these markers
+may impact other studies that use the same array platform.
 
 We have not discussed the problem of cleaning phenotype data, but this
 is also important. We would focus on data visualizations, including
@@ -839,13 +884,12 @@ transformations (such as logarithm or square-root), or they may reveal
 important batch effects or other covariates that should be taken into
 account in analyses.
 
-
 We used R \citep{RCore} and R/qtl2 \citep{broman2019}
 throughout this work. Another
 important R package for genotype diagnostics is argyle \citep{argyle},
 which provides a variety of diagnostics for SNP genotyping arrays.
 
-We focused on relatively simple data visualizations to diagnose
+We focused on data visualizations to diagnose
 potential problems, and that is the central tool for data cleaning.
 Make lots of graphs, focusing on graphs that will reveal anticipated
 problems but also following up on anything unexpected: Is it a
@@ -858,7 +902,7 @@ for identifying outlier samples in scatterplots.
 While we have focused on DO mice, our approach could be applied more
 generally, to other multiparent populations. The key summary
 statistics are the proportion of missing genotypes, the average
-microarray probe intensities for SNPs on the X and Y chromosomes, the
+probe intensities for SNPs on the X and Y chromosomes, the
 proportion of heterozygous SNPs, the estimated number of crossovers,
 and the estimated genotyping error rate.
 
