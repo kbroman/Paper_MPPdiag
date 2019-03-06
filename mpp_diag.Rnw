@@ -387,7 +387,7 @@ A small proportion of pairs
 (\Sexpr{sum(cg > 0.6 & cg < 0.9)} pairs, or
 \Sexpr{myround(mean(cg > 0.6 & cg < 0.9)*100, 1)}\%) share a bit more,
 at around \Sexpr{myround(median(cg[cg > 0.6 & cg < 0.9])*100, 1)}\%.
-These likely represent siblings or avuncular relationships in the DO population.
+These likely represent siblings.
 
 Two pairs have almost perfectly matching SNP
 genotypes. Mice \Sexpr{dup[1,"ind1"]} and \Sexpr{dup[1,"ind2"]} have
