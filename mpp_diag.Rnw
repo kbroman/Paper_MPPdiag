@@ -910,8 +910,8 @@ and the estimated genotyping error rate.
 \clearpage
 \section*{Acknowledgments}
 
-This work was supported in part by National Institutes of Health
-grant R01GM070683 (to K.W.B. and G.A.C.).
+This work was supported in part by National Institutes of Health grants
+R01GM070683 (to K.W.B. and G.A.C.) and R01GM123489 (to \'S.S.).
 
 
 \clearpage
