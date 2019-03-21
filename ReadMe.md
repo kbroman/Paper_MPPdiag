@@ -1,5 +1,7 @@
 ## Cleaning genotype data from Diversity Outbred mice
 
+[![doi badge](https://zenodo.org/badge/DOI/10.5281/zenodo.2601929.svg)](https://doi.org/10.5281/zenodo.2601929)
+
 Files for a paper on genotype diagnostics for
 Diversity Outbred mice, focusing on SNPs from MegaMUGA arrays,
 to appear in [G3](http://g3journal.org),
