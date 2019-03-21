@@ -1,7 +1,9 @@
 ## Cleaning genotype data from Diversity Outbred mice
 
-Files for a paper (in preparation) on genotype diagnostics for
-Diversity Outbred mice, focusing on SNPs from MegaMUGA arrays.
+Files for a paper on genotype diagnostics for
+Diversity Outbred mice, focusing on SNPs from MegaMUGA arrays,
+to appear in [G3](http://g3journal.org),
+[doi:10.1534/g3.119.400165](https://doi.org/10.1534/g3.119.400165).
 
 - [`mpp_diag.Rnw`](mpp_diag.Rnw) - knitr/LaTeX source
 - [`mpp_diag.bib`](mpp_diag.bib) - BibTex references
