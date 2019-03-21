@@ -9,8 +9,10 @@ e <- do.call("cbind", e)
 errors_ind <- rowSums(e>2)/n_typed(svenson)*100
 
 
-pdf("../Figs/fig6.pdf", width=6.5, height=3, pointsize=12)
-par(mar=c(2.6, 3.3, 0.6, 0.6))
+for(type in c("pdf", "eps")) {
+if(type=="pdf") pdf("../Figs/fig6.pdf", width=6.5, height=3, pointsize=12)
+else postscript("../Figs/fig6.eps", width=6.5, height=3, pointsize=12, paper="special", onefile=FALSE, horizontal=FALSE)
+par(mar=c(2.6, 3.3, 0.6, 0.9))
 grayplot(errors_ind,
          xlab="Mouse", ylab="Percent genotyping errors",
          mgp.x=c(1.5,0.3,0), mgp.y=c(2.3,0.3,0),
@@ -39,3 +41,4 @@ for(i in seq_along(wh)) {
          adj=adj[i], cex=0.7)
 }
 dev.off()
+}

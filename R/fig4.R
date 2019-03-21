@@ -5,7 +5,9 @@ library(qtl2)
 
 gf_ind <- readRDS("diag_cache/snp_freq_ind.rds")
 
-pdf("../Figs/fig4.pdf", width=6.5, height=5.5, pointsize=12)
+for(type in c("pdf", "eps")) {
+if(type=="pdf") pdf("../Figs/fig4.pdf", width=6.5, height=5.5, pointsize=12)
+else postscript("../Figs/fig4.eps", width=6.5, height=5.5, pointsize=12, paper="special", horizontal=FALSE, onefile=FALSE)
 par(mfrow=c(2,2), mar=c(0.6, 0.6, 2.1, 0.6))
 for(i in 1:4) {
     triplot(c("AA", "AB", "BB"))
@@ -60,3 +62,4 @@ for(i in 1:4) {
 
 }
 dev.off()
+}

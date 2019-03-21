@@ -31,7 +31,11 @@ yint_ave <- rowMeans(yint[, y_pval < 0.05/length(y_pval)], na.rm=TRUE)
 point_colors <- as.character( brocolors("web")[c("green", "purple")] )
 
 
-pdf("../Figs/fig2.pdf", width=6.5, height=4, pointsize=10)
+for(type in c("pdf", "eps")) {
+
+if(type=="pdf") pdf("../Figs/fig2.pdf", width=6.5, height=4, pointsize=10)
+else postscript("../Figs/fig2.eps", width=6.5, height=4, pointsize=10, paper="special", horizontal=FALSE, onefile=FALSE)
+
 par(mar=c(3.1,4.1,1.1,1.1))
 grayplot(xint_ave, yint_ave, pch=21, bg=point_colors[(sex=="M")+1],
          xlab="Average X chr intensity", ylab="Average Y chr intensity",
@@ -84,3 +88,4 @@ for(ind in himis) {
 }
 
 dev.off()
+}

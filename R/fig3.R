@@ -29,7 +29,10 @@ if(file.exists(file)) {
     save(x, d, qu, file=file)
 }
 
-pdf("../Figs/fig3.pdf", width=6.5, height=2.7, pointsize=9)
+for(type in c("pdf", "eps")) {
+
+if(type=="pdf") pdf("../Figs/fig3.pdf", width=6.5, height=2.7, pointsize=9)
+else postscript("../Figs/fig3.eps", width=6.5, height=2.7, pointsize=10, paper="special", horizontal=FALSE, onefile=FALSE)
 
 layout(cbind(1,2), width=c(1.5,1))
 
@@ -83,3 +86,4 @@ text(u[1]-diff(u[1:2])*0.18,
      "B", font=2, xpd=TRUE, cex=1.4)
 
 dev.off()
+}

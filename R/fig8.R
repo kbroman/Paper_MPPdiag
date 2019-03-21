@@ -10,8 +10,9 @@ fg <- do.call("cbind", svenson$founder_geno[1:19])
 fg <- fg[,colSums(fg==0)==0]
 fgn <- colSums(fg==3)
 
-png("../Figs/fig8.png", width=6.5, height=5.5, pointsize=12,
-    units="in", res=300)
+for(type in c("png", "jpg")) {
+if(type=="png") png("../Figs/fig8.png", width=6.5, height=5.5, pointsize=12, units="in", res=300)
+else jpeg("../Figs/fig8.jpg", width=6.5, height=5.5, pointsize=12, units="in", res=300)
 par(mfrow=c(2,2), mar=c(0.6, 0.6, 2.1, 0.6))
 for(i in 1:4) {
     triplot(c("AA", "AB", "BB"))
@@ -23,3 +24,4 @@ for(i in 1:4) {
     tripoints(c((1-i/8)^2, 2*i/8*(1-i/8), (i/8)^2), pch=21, bg="violetred")
 }
 dev.off()
+}

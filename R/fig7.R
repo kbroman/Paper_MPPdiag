@@ -11,8 +11,9 @@ e <- do.call("cbind", e)
 
 errors_mar <- colSums(e>2)/n_typed(svenson, "marker")*100
 
-png("../Figs/fig7.png", width=6.5, height=3, pointsize=12,
-    units="in", res=300)
+for(type in c("png", "jpg")) {
+if(type=="png") png("../Figs/fig7.png", width=6.5, height=3, pointsize=12, units="in", res=300)
+else jpeg("../Figs/fig7.jpg", width=6.5, height=3, pointsize=12, units="in", res=300)
 par(mar=c(3.1,3.1,0.6,0.6))
 grayplot(pmis_mar, errors_mar,
          xlab="Proportion missing", ylab="Proportion genotyping errors",
@@ -40,3 +41,4 @@ for(i in seq_along(bad)) {
 }
 
 dev.off()
+}

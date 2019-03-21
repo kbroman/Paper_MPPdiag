@@ -17,7 +17,11 @@ pmis <- n_missing(svenson, "ind", "prop")*100
 #pmis <- pmis[order(ngen, id_numer, sex_numer)]
 
 
-pdf("../Figs/fig1.pdf", width=6.5, height=3, pointsize=10)
+for(type in c("pdf", "eps")) {
+
+if(type=="pdf") pdf("../Figs/fig1.pdf", width=6.5, height=3, pointsize=10)
+else postscript("../Figs/fig1.eps", paper="special", width=6.5, height=3, pointsize=10, horizontal=FALSE, onefile=FALSE)
+
 par(mar=c(3.1,3.1,1.1,1.1))
 
 grayplot(pmis, xlab="Mouse", ylab="Percent missing genotypes",
@@ -38,3 +42,5 @@ for(mouse in big) {
 }
 
 dev.off()
+
+}

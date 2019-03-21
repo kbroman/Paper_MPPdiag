@@ -30,7 +30,10 @@ markers <- c("JAX00279019",
              "UNC12329705",
              "UNC20478577")
 
-pdf("../Figs/fig9.pdf", height=8, width=5.5, pointsize=12)
+for(type in c("pdf", "eps")) {
+if(type=="pdf") pdf("../Figs/fig9.pdf", height=8, width=5.5, pointsize=12)
+else postscript("../Figs/fig9.eps", height=8, width=5.5, pointsize=12, paper="special", onefile=FALSE, horizontal=FALSE)
+
 par(mfrow=c(4,2), mar=c(3.1,3.1,2.1,1.1))
 for(i in seq_along(markers)) {
     mar <- markers[i]
@@ -54,3 +57,4 @@ for(i in seq_along(markers)) {
 
 }
 dev.off()
+}
