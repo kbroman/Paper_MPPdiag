@@ -442,8 +442,8 @@ are highlighted in orange; their array intensities are shifted to the left
 and have a long right tail.
 There are \Sexpr{numbers[sum(pmis >= 8.9 & pmis < 19.97)]} samples with $\sim$9\%
 missing data (in pink); they show a much broader distribution of array intensities.
-There are \Sexpr{numbers[sum(pmis > 2.5 & pmis < 8.9)]} samples with
-2.5--5\% missing genotypes (in blue); many of these have a spike of
+There are \Sexpr{numbers[sum(pmis > 2 & pmis < 8.9)]} samples with
+2--5\% missing genotypes (in blue); many of these have a spike of
 intensities near 0.
 
 \begin{figure} \begin{center}

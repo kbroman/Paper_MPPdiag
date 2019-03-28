@@ -46,11 +46,11 @@ grayplot(x, d[,1], type="n", ylim=c(0, ymx), xlim=c(0,0.92),
 for(i in 1:ncol(d)) lines(x, d[,i], col=color[1])
 
 
-for(mouse in names(pmis)[pmis > 2 & pmis < 9]) {
+for(mouse in names(pmis)[pmis > 2 & pmis < 8.9]) {
     lines(x, d[,mouse], col=color[2])
 }
 
-for(mouse in names(pmis)[pmis >= 9 & pmis < 19.97]) {
+for(mouse in names(pmis)[pmis >= 8.9 & pmis < 19.97]) {
     lines(x, d[,mouse], col=color[3])
 }
 
