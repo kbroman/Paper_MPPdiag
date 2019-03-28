@@ -16,7 +16,7 @@ if(type=="png") png("../Figs/fig7.png", width=6.5, height=3, pointsize=12, units
 else jpeg("../Figs/fig7.jpg", width=6.5, height=3, pointsize=12, units="in", res=300)
 par(mar=c(3.1,3.1,0.6,0.6))
 grayplot(pmis_mar, errors_mar,
-         xlab="Proportion missing", ylab="Proportion genotyping errors",
+         xlab="Percent missing genotypes", ylab="Percent genotyping errors",
          mgp.x=c(1.5, 0.3, 0), mgp.y=c(1.9, 0.3, 0),
          yat=seq(0, 100, by=20), vlines=seq(0, 100, by=20),
          xlim=c(-0.3, max(pmis_mar)*1.05), ylim=c(-0.3, max(errors_mar)*1.05),
