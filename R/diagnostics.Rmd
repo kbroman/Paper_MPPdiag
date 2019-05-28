@@ -325,9 +325,9 @@ key indicator of poor sample quality.
 Here are the top 19 samples, by the amount of missing data. In
 addition to the `r sum(percent_missing>=19.97)` that are missing > 20%
 genotypes, there are
-`r sum(percent_missing>5 & percent_missing<19.97)` that are missing
+`r sum(percent_missing>8.5 & percent_missing<9.5)` that are missing
 around 9% of their genotypes, and
-`r sum(percent_missing>3 & percent_missing<8.9)` that are missing
+`r sum(percent_missing>3 & percent_missing<5)` that are missing
 3-5%.
 
 ```{r percent_missing_again}
